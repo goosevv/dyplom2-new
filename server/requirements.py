@@ -1,4 +1,8 @@
 Flask
-Flask-SQLAlchemy
-PyMySQL
-python-dotenv      # если будете хранить секреты в .env
+flask-cors
+flask-jwt-extended
+pymysql
+pandas
+scipy
+scikit-learn
+sqlalchemy
