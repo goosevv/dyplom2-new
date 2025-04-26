@@ -1,12 +1,6 @@
 // src/components/NavBar.jsx
 import React from 'react'
-import {
-  Flex,
-  Box,
-  HStack,
-  Link,
-  Button
-} from '@chakra-ui/react'
+import { Flex, Box, HStack, Link, Button } from '@chakra-ui/react'
 import { NavLink } from 'react-router-dom'
 
 export default function NavBar() {
@@ -17,14 +11,16 @@ export default function NavBar() {
       top="0"
       left="0"
       w="100%"
+      // отступы по бокам и сверху/снизу
       px={{ base: 6, md: 12 }}
       py={4}
       align="center"
       justify="space-between"
-      bg="transparent"
+      bg="transparent"    // полностью прозрачный
+      boxShadow="none"    // убираем тень
       zIndex="banner"
     >
-      {/* Левый логотип */}
+      {/* Логотип */}
       <Box>
         <Link
           as={NavLink}
@@ -38,47 +34,33 @@ export default function NavBar() {
         </Link>
       </Box>
 
-      {/* Центр — навигационные ссылки */}
+      {/* Навигация */}
       <HStack spacing={{ base: 4, md: 8 }}>
-        <Link
-          as={NavLink}
-          to="/"
-          color="white"
-          _hover={{ opacity: 0.8, textDecor: 'none' }}
-          sx={{ '&.active': { borderBottom: '2px solid white' } }}
-        >
-          Головна
-        </Link>
-        <Link
-          as={NavLink}
-          to="/recommendations"
-          color="white"
-          _hover={{ opacity: 0.8, textDecor: 'none' }}
-          sx={{ '&.active': { borderBottom: '2px solid white' } }}
-        >
-          Рекомендації
-        </Link>
-        <Link
-          as={NavLink}
-          to="/favorites"
-          color="white"
-          _hover={{ opacity: 0.8, textDecor: 'none' }}
-          sx={{ '&.active': { borderBottom: '2px solid white' } }}
-        >
-          Улюблені
-        </Link>
-        <Link
-          as={NavLink}
-          to="/profile"
-          color="white"
-          _hover={{ opacity: 0.8, textDecor: 'none' }}
-          sx={{ '&.active': { borderBottom: '2px solid white' } }}
-        >
-          Профіль
-        </Link>
+        {[
+          ['/',               'Головна'],
+          ['/recommendations','Рекомендації'],
+          ['/favorites',      'Улюблені'],
+          ['/profile',        'Профіль'],
+        ].map(([to, label]) => (
+          <Link
+            as={NavLink}
+            key={to}
+            to={to}
+            color="white"
+            _hover={{ opacity: 0.8, textDecor: 'none' }}
+            sx={{
+              '&.active': {
+                borderBottom: '2px solid white',
+                fontWeight: 'bold'
+              }
+            }}
+          >
+            {label}
+          </Link>
+        ))}
       </HStack>
 
-      {/* Правый блок — кнопки входа/регистрации */}
+      {/* Кнопки Вхід/Реєстрація */}
       <HStack spacing={4}>
         <Link
           as={NavLink}
@@ -91,10 +73,10 @@ export default function NavBar() {
         <Button
           as={NavLink}
           to="/register"
-          colorScheme="teal"
-          bg="white"
-          color="black"
           size="sm"
+          bg="whiteAlpha.800"
+          color="black"
+          _hover={{ bg: 'whiteAlpha.900' }}
         >
           Реєстрація
         </Button>
