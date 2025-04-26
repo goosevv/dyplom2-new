@@ -1,0 +1,2 @@
+server/data/**/*.csv filter=lfs diff=lfs merge=lfs -text
+server/models/*.pkl filter=lfs diff=lfs merge=lfs -text

@@ -1,0 +1,16 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+
+# виртуальные окружения
+/venv/
+/server/venv/
+/movie-recommender/venv/
+
+# Node.js
+/node_modules/
+/movie-recommender/node_modules/
+
+# данные и модели
+/server/data/
+/server/models/
