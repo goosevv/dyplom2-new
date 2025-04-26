@@ -1,0 +1,12 @@
+[33m83d6663[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{0}: commit: Clean repo: ignore node_modules, venv, data, models
+[33m3415215[m HEAD@{1}: commit: Initial commit: добавил весь код и конфиги
+[33m124f60a[m HEAD@{2}: commit: Ignore virtualenv and Python cache
+[33m87c249f[m HEAD@{3}: checkout: moving from main to main
+[33m87c249f[m HEAD@{4}: checkout: moving from main to main
+[33m87c249f[m HEAD@{5}: checkout: moving from main to main
+[33m87c249f[m HEAD@{6}: Branch: renamed refs/heads/clean to refs/heads/main
+[33m87c249f[m HEAD@{8}: commit (initial): Configure Git LFS & ignore heavy dirs
+[33m7449908[m HEAD@{9}: commit: Ignore heavy data and model files
+[33m7c359e4[m HEAD@{10}: commit: Track heavy files via Git LFS
+[33mb6c7cc8[m HEAD@{11}: commit: Track heavy data and model files with Git LFS
+[33m771f714[m HEAD@{12}: commit (initial): Initial commit

@@ -5,6 +5,8 @@ import re
 import pickle
 import traceback
 import importlib.util
+import pymysql
+pymysql.install_as_MySQLdb()
 
 import pandas as pd
 import scipy.sparse
