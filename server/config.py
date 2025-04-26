@@ -1,10 +1,14 @@
+from dotenv import load_dotenv
 import os
+
+load_dotenv()
+
 
 class Config:
     # Путь к базе данных (SQLite для разработки)
     SQLALCHEMY_DATABASE_URI = os.getenv(
-        "DATABASE_URL",
-        "mysql://reco_user:YourPass123@127.0.0.1/movie_reco"
+        "mysql+pymysql://goose:413153"
+        "@localhost:3306/dyplom3?charset=utf8mb4"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
