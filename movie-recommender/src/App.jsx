@@ -6,7 +6,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
 import Lists from './pages/Lists';
-
+import Favorites from './pages/FavoritesRecommendations';
 export default function App() {
   return (
     <BrowserRouter>
@@ -20,6 +20,9 @@ export default function App() {
               </li>
               <li className="nav-item">
                 <Link className="nav-link" to="/lists">Списки</Link>
+              </li>
+              <li className="nav-item">
+                <Link className="nav-link" to="/favorites">Улюблені</Link>
               </li>
               <li className="nav-item">
                 <Link className="nav-link" to="/profile">Профіль</Link>
@@ -44,6 +47,7 @@ export default function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/favorites" element={<Favorites />} />
       </Routes>
     </BrowserRouter>
   );

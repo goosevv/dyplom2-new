@@ -1,43 +1,57 @@
-// src/components/MovieCard.jsx
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import './MovieCard.css';
-import { TMDB_KEY, TMDB_IMG_BASE, API_BASE } from '../config';
+// movie-recommender/src/components/MovieCard.jsx
+import React, { useState, useEffect } from 'react'
+import axios from 'axios'
+import { API, authHeaders } from '../config'
 
-export default function MovieCard({ tmdbId, title }) {
-  const [details, setDetails] = useState(null);
+export default function MovieCard({ movie }) {
+  const [liked, setLiked] = useState(false)
 
   useEffect(() => {
-    // Загружаем детали фильма (описание, жанры и дату)
-    axios
-      .get(`https://api.themoviedb.org/3/movie/${tmdbId}`, {
-        params: { api_key: TMDB_KEY, language: 'uk-UA' }
-      })
-      .then(r => setDetails(r.data))
-      .catch(() => setDetails({ overview: 'Немає опису', genres: [], release_date: '' }));
-  }, [tmdbId]);
+    // Определить, в избранном ли
+    const favs = JSON.parse(localStorage.getItem('favorites') || '[]')
+    setLiked(favs.includes(movie.movieId))
+  }, [movie.movieId])
 
-  const posterUrl = details && details.poster_path
-    ? TMDB_IMG_BASE + details.poster_path
-    : '/placeholder.png';
-
-  const releaseYear = details?.release_date?.slice(0, 4) || '–––';
-  const genres = details?.genres?.map(g => g.name).join(', ') || 'Жанри невідомі';
-  const overview = details?.overview || '';
+  const handleLike = async () => {
+    let favs = JSON.parse(localStorage.getItem('favorites') || '[]')
+    if (liked) {
+      await axios.delete(`${API}/like/${movie.movieId}`, authHeaders())
+      favs = favs.filter(id => id !== movie.movieId)
+    } else {
+      await axios.post(`${API}/like/${movie.movieId}`, null, authHeaders())
+      favs.push(movie.movieId)
+    }
+    localStorage.setItem('favorites', JSON.stringify(favs))
+    setLiked(!liked)
+  }
 
   return (
-    <div className="movie-card">
-      <img src={posterUrl} alt={title} className="poster" />
-      <div className="info">
-        <h6 className="movie-title">{title}</h6>
-      </div>
-      <div className="overlay">
-        <div className="overlay-content">
-          <p className="movie-year">{releaseYear}</p>
-          <p className="movie-genres">{genres}</p>
-          <p className="movie-overview">{overview}</p>
+    <div className="col">
+      <div className="card h-100">
+        <img
+          src={movie.poster}
+          className="card-img-top"
+          alt={movie.title}
+          style={{ objectFit: 'cover', height: '300px' }}
+        />
+        <div className="card-body">
+          <h5 className="card-title">{movie.title}</h5>
+          <p className="card-text text-muted">
+            {movie.releaseDate} &bull; {movie.genre?.join(', ')}
+          </p>
+        </div>
+        <div className="card-footer bg-white border-0 text-end">
+          <button
+            onClick={handleLike}
+            className="btn btn-outline-danger"
+            style={{ width: '40px', height: '40px', padding: 0 }}
+          >
+            {liked ? '💖' : '🤍'}
+          </button>
         </div>
       </div>
     </div>
-  );
+  )
 }
+
+
