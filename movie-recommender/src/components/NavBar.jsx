@@ -1,7 +1,7 @@
-// src/components/NavBar.jsx
 import React from 'react'
 import { Flex, Box, HStack, Link, Button } from '@chakra-ui/react'
 import { NavLink } from 'react-router-dom'
+import LanguageSwitcher from './LanguageSwitcher'
 
 export default function NavBar() {
   return (
@@ -11,16 +11,14 @@ export default function NavBar() {
       top="0"
       left="0"
       w="100%"
-      // отступы по бокам и сверху/снизу
       px={{ base: 6, md: 12 }}
       py={4}
       align="center"
       justify="space-between"
-      bg="transparent"    // полностью прозрачный
-      boxShadow="none"    // убираем тень
+      bg="transparent"
+      boxShadow="none"
       zIndex="banner"
     >
-      {/* Логотип */}
       <Box>
         <Link
           as={NavLink}
@@ -34,7 +32,6 @@ export default function NavBar() {
         </Link>
       </Box>
 
-      {/* Навигация */}
       <HStack spacing={{ base: 4, md: 8 }}>
         {[
           ['/',               'Головна'],
@@ -48,20 +45,15 @@ export default function NavBar() {
             to={to}
             color="white"
             _hover={{ opacity: 0.8, textDecor: 'none' }}
-            sx={{
-              '&.active': {
-                borderBottom: '2px solid white',
-                fontWeight: 'bold'
-              }
-            }}
+            sx={{ '&.active': { borderBottom: '2px solid white', fontWeight: 'bold' } }}
           >
             {label}
           </Link>
         ))}
       </HStack>
 
-      {/* Кнопки Вхід/Реєстрація */}
       <HStack spacing={4}>
+        <LanguageSwitcher />
         <Link
           as={NavLink}
           to="/login"
