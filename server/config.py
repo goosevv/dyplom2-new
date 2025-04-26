@@ -1,16 +1,15 @@
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
 
 load_dotenv()
 
-
 class Config:
-    # Путь к базе данных (SQLite для разработки)
     SQLALCHEMY_DATABASE_URI = os.getenv(
-        "mysql+pymysql://goose:413153"
-        "@localhost:3306/dyplom3?charset=utf8mb4"
+        "DATABASE_URL",
+        "mysql+pymysql://goose:413153@localhost:3306/dyplom3?charset=utf8mb4"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
 
     # Секретный ключ для JWT
     JWT_SECRET_KEY = os.getenv(
