@@ -1,13 +1,15 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import { ChakraProvider, ColorModeScript } from "@chakra-ui/react";
-import theme from "./theme";
-import { BrowserRouter } from "react-router-dom";
-import App from "./App";
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import { ChakraProvider, ColorModeScript } from '@chakra-ui/react'
+import { BrowserRouter } from 'react-router-dom'
 
-ReactDOM.createRoot(document.getElementById("root")).render(
+import App from './App'
+import theme from './theme'
+import './index.css'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
   <>
-    {/* скрипт устанавливает правильный класс <html> до загрузки JS */}
+    {/* Этот скрипт применит initialColorMode до того, как отрендерится React */}
     <ColorModeScript initialColorMode={theme.config.initialColorMode} />
     <ChakraProvider theme={theme}>
       <BrowserRouter>
@@ -15,4 +17,4 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       </BrowserRouter>
     </ChakraProvider>
   </>
-);
+)
