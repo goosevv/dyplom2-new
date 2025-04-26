@@ -1,81 +1,90 @@
 // src/pages/Register.jsx
-import React, { useState } from "react";
-import axios from "axios";
-import { useNavigate, Link } from "react-router-dom";
-import { API_BASE } from "../config";
+import React, { useState } from 'react'
+import axios from 'axios'
+import {
+  Box,
+  Heading,
+  FormControl,
+  FormLabel,
+  Input,
+  Button,
+  Alert,
+  AlertIcon,
+  VStack
+} from '@chakra-ui/react'
+import { useNavigate } from 'react-router-dom'
+import { API_ROOT } from '../config'
 
 export default function Register() {
-  const [name, setName]         = useState("");
-  const [email, setEmail]       = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError]       = useState("");
-  const [success, setSuccess]   = useState("");
-  const navigate = useNavigate();
+  const [name, setName]         = useState('')
+  const [email, setEmail]       = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError]       = useState(null)
+  const [success, setSuccess]   = useState(null)
+  const navigate                = useNavigate()
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-    if (!name || !email || !password) {
-      setError("Будь ласка, заповніть всі поля.");
-      return;
-    }
+    e.preventDefault()
+    setError(null)
     try {
-      const { data } = await axios.post(
-        `${API_BASE}/register`,
-        { name, email, password }
-      );
-      setSuccess("Реєстрація успішна! Тепер увійдіть.");
-      // через 1.5 сек редирект на логін
-      setTimeout(() => navigate("/login"), 1500);
+      await axios.post(`${API_ROOT}/register`, { name, email, password })
+      setSuccess('Реєстрація успішна! Тепер можете зайти.')
+      setTimeout(() => navigate('/login'), 1500)
     } catch (err) {
-      setError(err.response?.data?.error || "Помилка реєстрації.");
+      setError(err.response?.data?.message || 'Помилка реєстрації')
     }
-  };
+  }
 
   return (
-    <div className="container mt-5" style={{ maxWidth: 400 }}>
-      <h2 className="mb-4 text-center">Зареєструватися</h2>
-      {error && <div className="alert alert-danger">{error}</div>}
-      {success && <div className="alert alert-success">{success}</div>}
+    <Box maxW="sm" mx="auto" mt={12} p={6} borderWidth="1px" borderRadius="md">
+      <Heading mb={6} textAlign="center">Реєстрація</Heading>
+
+      {error && (
+        <Alert status="error" mb={4}>
+          <AlertIcon />
+          {error}
+        </Alert>
+      )}
+      {success && (
+        <Alert status="success" mb={4}>
+          <AlertIcon />
+          {success}
+        </Alert>
+      )}
+
       <form onSubmit={handleSubmit}>
-        <div className="mb-3">
-          <label className="form-label">Ім’я</label>
-          <input
-            type="text"
-            className="form-control"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-        </div>
-        <div className="mb-3">
-          <label className="form-label">Email</label>
-          <input
-            type="email"
-            className="form-control"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </div>
-        <div className="mb-3">
-          <label className="form-label">Пароль</label>
-          <input
-            type="password"
-            className="form-control"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
-        <button type="submit" className="btn btn-outline-primary w-100">
-          Зареєструватися
-        </button>
+        <VStack spacing={4}>
+          <FormControl id="name" isRequired>
+            <FormLabel>Ім’я</FormLabel>
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+            />
+          </FormControl>
+
+          <FormControl id="email" isRequired>
+            <FormLabel>Електронна пошта</FormLabel>
+            <Input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+            />
+          </FormControl>
+
+          <FormControl id="password" isRequired>
+            <FormLabel>Пароль</FormLabel>
+            <Input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+            />
+          </FormControl>
+
+          <Button colorScheme="teal" type="submit" w="full">
+            Зареєструватися
+          </Button>
+        </VStack>
       </form>
-      <p className="mt-3 text-center">
-        Вже є акаунт? <Link to="/login">Увійти</Link>
-      </p>
-    </div>
-  );
+    </Box>
+  )
 }
