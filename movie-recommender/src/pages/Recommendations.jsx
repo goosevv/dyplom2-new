@@ -12,9 +12,8 @@ import {
   SimpleGrid,
   VStack,
   Alert,
-  AlertIcon
 } from '@chakra-ui/react'
-
+import { AlertIcon } from '@chakra-ui/icons'
 export default function Recommendations() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])

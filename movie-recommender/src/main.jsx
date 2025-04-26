@@ -5,6 +5,8 @@ import App from './App'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <ChakraProvider>
-    <App />
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </ChakraProvider>
 )
