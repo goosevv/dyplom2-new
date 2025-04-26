@@ -1,8 +1,9 @@
 // src/components/MovieCard.jsx
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useContext } from 'react'
 import axios from 'axios'
 import {
   Box,
+  AspectRatio,
   Image,
   Heading,
   Text,
@@ -11,6 +12,7 @@ import {
   useColorModeValue
 } from '@chakra-ui/react'
 import { FaHeart, FaRegHeart } from 'react-icons/fa'
+import { LocaleContext } from '../LocaleContext'
 import {
   API,
   authHeaders,
@@ -19,105 +21,119 @@ import {
   TMDB_IMG_BASE
 } from '../config'
 
-// кеш жанров
+// Кэш жанров, чтобы не дергать API каждый раз
 let genreMap = {}
-async function loadGenres() {
+async function loadGenres(lang) {
   if (Object.keys(genreMap).length) return
   try {
-    const res = await axios.get(`${TMDB_API_BASE}/genre/movie/list`, {
-      params: { api_key: TMDB_KEY, language: 'uk-UA' }
-    })
+    const res = await axios.get(
+      `${TMDB_API_BASE}/genre/movie/list`,
+      { params: { api_key: TMDB_KEY, language: lang } }
+    )
     res.data.genres.forEach(g => (genreMap[g.id] = g.name))
   } catch {}
 }
 
 export default function MovieCard({ movie, onClickCard }) {
-  // хуки — всегда в самом начале
+  // ── 1. Хуки всегда в начале ─────────────────────
+  const { tmdbLang } = useContext(LocaleContext)
   const [details, setDetails] = useState(null)
   const [liked, setLiked] = useState(false)
-  const overlayBg = useColorModeValue('rgba(255,255,255,0.6)', 'rgba(0,0,0,0.6)')
+  const bg = useColorModeValue('white', 'gray.700')
 
+  // ── 2. Эффект: загрузка деталей и лайков ────────
   useEffect(() => {
-    loadGenres()
+    loadGenres(tmdbLang)
 
     const favs = JSON.parse(localStorage.getItem('favorites') || '[]')
     setLiked(favs.includes(movie.movieId))
 
-    // Ищем фильм по названию
     const titleNoYear = movie.title.replace(/\s*\(\d{4}\)$/, '')
-    const yearMatch = movie.title.match(/\((\d{4})\)$/)
-    const params = { api_key: TMDB_KEY, query: titleNoYear, language: 'uk-UA' }
+    const yearMatch   = movie.title.match(/\((\d{4})\)$/)
+    const params      = { api_key: TMDB_KEY, query: titleNoYear, language: tmdbLang }
     if (yearMatch) params.year = yearMatch[1]
 
     axios
       .get(`${TMDB_API_BASE}/search/movie`, { params })
-      .then(({ data }) => setDetails(data.results?.[0] || {}))
+      .then(r => setDetails(r.data.results?.[0] || {}))
       .catch(() => setDetails({}))
-  }, [movie.movieId])
+  }, [movie.movieId, tmdbLang])
 
-  const toggleLike = async (e) => {
-    e.stopPropagation()
-    if (liked) {
-      await axios.delete(`${API}/like/${movie.movieId}`, authHeaders())
-    } else {
-      await axios.post(`${API}/like/${movie.movieId}`, null, authHeaders())
-    }
-    let favs = JSON.parse(localStorage.getItem('favorites') || '[]')
-    favs = liked
-      ? favs.filter(id => id !== movie.movieId)
-      : [...favs, movie.movieId]
-    localStorage.setItem('favorites', JSON.stringify(favs))
-    setLiked(!liked)
-  }
-
-  // пока details === null, показываем спиннер
+  // ── 3. Пока details === null — спиннер ───────────
   if (details === null) {
     return (
-      <Box display="flex" flex="1" justifyContent="center" alignItems="center" p={4}>
+      <Box maxW="sm" w="100%" textAlign="center" py={6}>
         <Spinner size="lg" />
       </Box>
     )
   }
 
-  // готовим данные
+  // ── 4. Подготовка полей ─────────────────────────
   const poster = details.poster_path
     ? `${TMDB_IMG_BASE}${details.poster_path}`
     : '/placeholder.png'
-  const year = (details.release_date || '').slice(0, 4)
-  const ids = details.genre_ids || details.genres?.map(g => g.id) || []
+  const year   = (details.release_date || '').slice(0, 4)
+  const ids    = details.genre_ids || details.genres?.map(g => g.id) || []
   const genres = ids.map(id => genreMap[id]).filter(Boolean).join(', ')
 
+  // ── 5. Обработчик «лайка» ───────────────────────
+  const toggleLike = async e => {
+    e.stopPropagation()
+    try {
+      if (liked) {
+        await axios.delete(`${API}/favorites`, {
+          ...authHeaders(),
+          data: { movieId: movie.movieId }
+        })
+      } else {
+        await axios.post(
+          `${API}/favorites`,
+          { movieId: movie.movieId },
+          authHeaders()
+        )
+      }
+      const favs    = JSON.parse(localStorage.getItem('favorites') || '[]')
+      const updated = liked
+        ? favs.filter(id => id !== movie.movieId)
+        : [...favs, movie.movieId]
+      localStorage.setItem('favorites', JSON.stringify(updated))
+      setLiked(!liked)
+    } catch {}
+  }
+
+  // ── 6. Рендер карточки с hover-эффектом ─────────
   return (
     <Box
-      onClick={onClickCard}
-      cursor={onClickCard ? 'pointer' : 'default'}
-      display="flex"
-      flexDir="column"
-      flex="1"
+      maxW="sm"
+      w="100%"
+      bg={bg}
       borderWidth="1px"
       borderRadius="md"
       overflow="hidden"
-      bg={useColorModeValue('white', 'gray.700')}
-      _hover={{ boxShadow: 'lg' }}
+      display="flex"
+      flexDirection="column"
+      cursor={onClickCard ? 'pointer' : 'default'}
+      onClick={onClickCard}
+      transition="all 0.2s ease"
+      _hover={{
+        transform: 'translateY(-4px)',
+        boxShadow: 'lg'
+      }}
     >
-      <Image
-        src={poster}
-        alt={details.title}
-        objectFit="cover"
-        height="300px"
-        width="100%"
-      />
-      <Box p={4} flex="1" display="flex" flexDir="column">
+      <AspectRatio ratio={2 / 3}>
+        <Image src={poster} alt={details.title} objectFit="cover" />
+      </AspectRatio>
+      <Box p={4} flex="1" display="flex" flexDirection="column">
         <Heading as="h5" size="md" mb={2} isTruncated>
           {details.title}
         </Heading>
-        <Text color="gray.500" mt="auto">
-          {year} {genres && <>• {genres}</>}
+        <Text color="gray.500" fontSize="sm" mt="auto">
+          {year} {genres && `• ${genres}`}
         </Text>
       </Box>
       <Box p={2} textAlign="right">
         <IconButton
-          aria-label="Like"
+          aria-label="Нравится"
           icon={liked ? <FaHeart /> : <FaRegHeart />}
           onClick={toggleLike}
           variant="outline"
@@ -127,3 +143,4 @@ export default function MovieCard({ movie, onClickCard }) {
     </Box>
   )
 }
+
