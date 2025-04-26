@@ -1,4 +1,3 @@
-// src/components/MovieCard.jsx
 import React, { useState, useEffect, useContext } from 'react'
 import axios from 'axios'
 import {
@@ -15,16 +14,14 @@ import {
 import { FaHeart, FaRegHeart } from 'react-icons/fa'
 import { LocaleContext } from '../LocaleContext'
 import {
-  API,
-  authHeaders,
   TMDB_KEY,
   TMDB_API_BASE,
-  TMDB_IMG_BASE
+  TMDB_IMG_BASE,
+  authHeaders
 } from '../config'
 
-// Кэш жанров по языкам:
+// Кэш жанров по языкам
 const genreCache = {}
-
 async function loadGenres(lang) {
   if (genreCache[lang]) return genreCache[lang]
   try {
@@ -42,28 +39,22 @@ async function loadGenres(lang) {
 }
 
 export default function MovieCard({ movie, onClickCard }) {
-  // 1. хуки
+  // ── 1) Хуки ────────────────────────────────
   const { tmdbLang } = useContext(LocaleContext)
   const [details, setDetails] = useState(null)
   const [liked, setLiked]     = useState(false)
-  const overlayBg = useColorModeValue('rgba(255,255,255,0.8)', 'rgba(0,0,0,0.8)')
-  const bg        = useColorModeValue('white', 'gray.700')
+  const bg         = useColorModeValue('white', 'gray.700')
+  const overlayBg  = useColorModeValue('rgba(255,255,255,0.8)', 'rgba(0,0,0,0.8)')
 
-  // 2. загрузка деталей и жанров
+  // ── 2) Подгружаем детали и жанры ────────────
   useEffect(() => {
-    let isMounted = true
+    let mounted = true
 
-    // сперва жанры
-    loadGenres(tmdbLang).then(map => {
-      if (!isMounted) return
-      genreCache[tmdbLang] = map
-    })
+    loadGenres(tmdbLang).then()
 
-    // лайк из localStorage
     const favs = JSON.parse(localStorage.getItem('favorites') || '[]')
     setLiked(favs.includes(movie.movieId))
 
-    // поиск по названию
     const titleNoYear = movie.title.replace(/\s*\(\d{4}\)$/, '')
     const yearMatch   = movie.title.match(/\((\d{4})\)$/)
     const params      = { api_key: TMDB_KEY, query: titleNoYear, language: tmdbLang }
@@ -71,19 +62,13 @@ export default function MovieCard({ movie, onClickCard }) {
 
     axios
       .get(`${TMDB_API_BASE}/search/movie`, { params })
-      .then(r => {
-        if (isMounted) setDetails(r.data.results?.[0] || {})
-      })
-      .catch(() => {
-        if (isMounted) setDetails({})
-      })
+      .then(r => mounted && setDetails(r.data.results?.[0] || {}))
+      .catch(() => mounted && setDetails({}))
 
-    return () => {
-      isMounted = false
-    }
+    return () => { mounted = false }
   }, [movie.movieId, tmdbLang])
 
-  // 3. спиннер
+  // ── 3) Спиннер, пока нет details ────────────
   if (details === null) {
     return (
       <Box maxW="sm" w="100%" textAlign="center" py={6} bg={bg}>
@@ -92,27 +77,34 @@ export default function MovieCard({ movie, onClickCard }) {
     )
   }
 
-  // 4. подготовка данных
+  // ── 4) Подготовка полей ─────────────────────
   const poster = details.poster_path
     ? `${TMDB_IMG_BASE}${details.poster_path}`
     : '/placeholder.png'
+
   const year     = (details.release_date || '').slice(0, 4)
   const ids      = details.genre_ids || details.genres?.map(g => g.id) || []
-  const genres   = ids.map(id => genreCache[tmdbLang]?.[id]).filter(Boolean).join(', ')
-  const overview = details.overview || 'Нет описания'
+  const genres   = ids
+    .map(id => genreCache[tmdbLang]?.[id])
+    .filter(Boolean)
+    .join(', ')
+  const overview = details.overview || 'Описание отсутствует'
 
-  // 5. обработчик лайка
+  // ── 5) Лайк/дизлайк ─────────────────────────
   const toggleLike = async e => {
     e.stopPropagation()
     try {
       if (liked) {
-        await axios.delete(`${API}/favorites`, {
-          ...authHeaders(),
-          data: { movieId: movie.movieId }
-        })
+        await axios.delete(
+          `/recommend/user/favorites`,
+          {
+            ...authHeaders(),
+            data: { movieId: movie.movieId }
+          }
+        )
       } else {
         await axios.post(
-          `${API}/favorites`,
+          `/recommend/user/favorites`,
           { movieId: movie.movieId },
           authHeaders()
         )
@@ -126,27 +118,26 @@ export default function MovieCard({ movie, onClickCard }) {
     } catch {}
   }
 
-  // 6. рендер карточки с оверлеем
+  // ── 6) Рендер с оверлеем и hover ────────────
   return (
     <Box
       pos="relative"
       maxW="sm"
       w="100%"
+      bg={bg}
       borderRadius="md"
       overflow="hidden"
-      bg={bg}
       cursor={onClickCard ? 'pointer' : 'default'}
       onClick={onClickCard}
       role="group"
       transition="transform .2s"
       _hover={{ transform: 'scale(1.05)' }}
     >
-      {/* Постер */}
       <AspectRatio ratio={2 / 3}>
         <Image src={poster} alt={details.title} objectFit="cover" />
       </AspectRatio>
 
-      {/* Всегда видно название */}
+      {/* Название всегда видно */}
       <Box p={2} bg={bg}>
         <Heading as="h5" size="md" isTruncated>
           {details.title}
@@ -162,19 +153,20 @@ export default function MovieCard({ movie, onClickCard }) {
         transition="opacity .3s"
         _groupHover={{ opacity: 1 }}
         display="flex"
-        flexDirection="column"
-        justifyContent="space-between"
+        flexDir="column"
+        justify="space-between"
       >
         {/* Описание */}
         <Box p={4} overflowY="auto">
-          <Text color={useColorModeValue('gray.800', 'white')} fontSize="sm">
+          <Text fontSize="sm" color={useColorModeValue('gray.800','white')}>
             {overview}
           </Text>
         </Box>
-        {/* Жанры, год и кнопка */}
+
+        {/* Жанры, год и ♥ */}
         <Flex
           p={3}
-          bg={useColorModeValue('whiteAlpha.900', 'blackAlpha.900')}
+          bg={useColorModeValue('whiteAlpha.900','blackAlpha.900')}
           align="center"
           justify="space-between"
         >
