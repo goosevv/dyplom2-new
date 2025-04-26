@@ -1,281 +1,224 @@
-# app.py
+# server/app.py
 
 import os
-import re
 import pickle
-import traceback
-import importlib.util
-import pymysql
-
-# Подмена MySQLdb
-pymysql.install_as_MySQLdb()
-
-import pandas as pd
-import scipy.sparse
-from sklearn.neighbors import NearestNeighbors
-
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import (
     JWTManager, create_access_token,
     jwt_required, get_jwt_identity
 )
+from flask_cors import CORS
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
 
-from config import Config
-from extensions import db, jwt
-
-# ORM-модели
-from models.user import User
-from models.rating import Rating
-from models.user_list import List, ListMovie
-from models.movie import Movie
-
-# Загрузка датасета фильмов
-MOVIES_CSV = os.path.join("data", "ml-latest", "movies.csv")
-movies_df = pd.read_csv(MOVIES_CSV)
-
-# Загрузка обученных моделей
-MODELS_DIR = "models"
-with open(os.path.join(MODELS_DIR, "svd_model.pkl"), "rb") as f:
-    svd_model = pickle.load(f)
-with open(os.path.join(MODELS_DIR, "knn_model.pkl"), "rb") as f:
-    knn_model = pickle.load(f)
-trainset = knn_model.trainset
-with open(os.path.join(MODELS_DIR, "movie_id_map.pkl"), "rb") as f:
-    movie_id_map = pickle.load(f)
-content_features = scipy.sparse.load_npz(os.path.join(MODELS_DIR, "content_features.npz"))
-content_nn = NearestNeighbors(metric="cosine", algorithm="brute", n_neighbors=10)
-content_nn.fit(content_features)
-spec = importlib.util.spec_from_file_location("hybrid", os.path.join(MODELS_DIR, "hybrid.py"))
-hybrid = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(hybrid)
-
-# Вспомогательная функция
-
-def clean_title(title: str) -> str:
-    t = re.sub(r"\s*\(\d{4}\)$", "", title)
-    m = re.match(r"^(.+),\s*(The|A|An)$", t, flags=re.IGNORECASE)
-    if m:
-        t = f"{m.group(2)} {m.group(1)}"
-    return t
-
-# Настройка Flask
+# ── Init Flask ─────────────────────────────────────────────────────
 app = Flask(__name__)
+from config import Config
 app.config.from_object(Config)
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", app.config["JWT_SECRET_KEY"])
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
-db.init_app(app)
-jwt.init_app(app)
 
-# Эндпоинты
+db  = SQLAlchemy(app)
+jwt = JWTManager(app)
+CORS(app)
 
-@app.route("/register", methods=["POST"])
+# ── SQLAlchemy Models ─────────────────────────────────────────────
+from models.user       import User
+from models.movie      import Movie
+from models.rating     import Rating
+from models.user_list  import List, ListMovie
+
+# ── Load ML models ─────────────────────────────────────────────────
+MODELS_DIR = os.path.join(os.path.dirname(__file__), 'models')
+with open(os.path.join(MODELS_DIR, 'movie_id_map.pkl'), 'rb') as f:
+    movie_map = pickle.load(f)
+with open(os.path.join(MODELS_DIR, 'knn_model.pkl'), 'rb') as f:
+    knn_model = pickle.load(f)
+with open(os.path.join(MODELS_DIR, 'svd_model.pkl'), 'rb') as f:
+    svd_model = pickle.load(f)
+
+
+# ── Recommendation helpers ─────────────────────────────────────────
+def knn_recommend(movie_id: int, n: int):
+    """
+    Surprise.KNNBasic: берём соседей через get_neighbors и sim.
+    """
+    trainset = knn_model.trainset
+    raw_iid  = str(movie_id)
+    try:
+        inner_id = trainset.to_inner_iid(raw_iid)
+    except ValueError:
+        return []
+    # получаем соседей
+    nbrs = knn_model.get_neighbors(inner_id, k=n)
+    recs = []
+    for nbr_inner_id in nbrs:
+        raw_id = trainset.to_raw_iid(nbr_inner_id)
+        score  = knn_model.sim[inner_id].get(nbr_inner_id, 0)
+        recs.append({"movieId": int(raw_id), "score": float(score)})
+    return recs
+
+def svd_recommend(movie_id: int, n: int):
+    """
+    Surprise.SVD: косинусная близость между qi-факторами.
+    """
+    import numpy as np
+    trainset = svd_model.trainset
+    raw_iid  = str(movie_id)
+    try:
+        inner_id = trainset.to_inner_iid(raw_iid)
+    except ValueError:
+        return []
+    # получаем матрицу item-факторов
+    all_q = getattr(svd_model, 'qi', getattr(svd_model, 'qi_', None))
+    if all_q is None:
+        return []
+    v = all_q[inner_id]
+    norms = np.linalg.norm(all_q, axis=1) * np.linalg.norm(v)
+    sims  = (all_q @ v) / norms
+    # топ-(n+1) индексов
+    top = np.argsort(-sims)[:n+1]
+    recs = []
+    for idx in top:
+        if idx == inner_id:
+            continue
+        raw_id = trainset.to_raw_iid(idx)
+        recs.append({"movieId": int(raw_id), "score": float(sims[idx])})
+        if len(recs) >= n:
+            break
+    return recs
+
+# ── Auth endpoints ──────────────────────────────────────────────────
+@app.route('/auth/register', methods=['POST'])
 def register():
-    data = request.get_json() or {}
-    name = data.get("name", "").strip()
-    email = data.get("email", "").strip().lower()
-    password = data.get("password", "")
-    if not name or not email or not password:
-        return jsonify(error="Будь ласка, заповніть усі поля."), 400
-    if User.query.filter_by(email=email).first():
-        return jsonify(error="Email вже використовується."), 400
-    user = User(name=name, email=email)
-    user.set_password(password)
+    data = request.get_json()
+    if User.query.filter_by(email=data['email']).first():
+        return jsonify({"message":"Email вже зайнятий"}), 400
+    user = User(
+        name=data['name'],
+        email=data['email'],
+        password_hash=generate_password_hash(data['password'])
+    )
     db.session.add(user)
     db.session.commit()
-    return jsonify(message="Реєстрація успішна!"), 200
+    return jsonify({"message":"Реєстрація успішна"}), 201
 
-@app.route("/login", methods=["POST"])
+@app.route('/auth/login', methods=['POST'])
 def login():
-    data = request.get_json() or {}
-    email = data.get("email", "").strip().lower()
-    password = data.get("password", "")
-    user = User.query.filter_by(email=email).first()
-    if not user or not user.check_password(password):
-        return jsonify(error="Невірний логін або пароль."), 401
-    token = create_access_token(identity=str(user.id))
-    return jsonify(access_token=token, user={"id": user.id, "name": user.name}), 200
+    data = request.get_json()
+    user = User.query.filter_by(email=data['email']).first()
+    if not user or not check_password_hash(user.password_hash, data['password']):
+        return jsonify({"message":"Невірний логін або пароль"}), 401
+    token = create_access_token(identity=user.id)
+    return jsonify({
+        'access_token': token,
+        'user': {'id': user.id, 'name': user.name, 'email': user.email}
+    }), 200
 
-@app.route("/search", methods=["GET"])
-def search():
-    q = request.args.get("q", "").strip().lower()
-    if not q:
-        return jsonify([])
-    df = movies_df[movies_df.title.str.lower().str.contains(q)]
-    return jsonify(df[["movieId", "title"]].head(10).to_dict("records"))
 
-# Универсальный эндпоинт рекомендаций по SVD
-@app.route("/api/recommendations/<int:user_id>", methods=["GET"])
-def api_recommendations(user_id):
-    n = request.args.get("n", default=10, type=int)
-    movie_ids = movies_df.movieId.tolist()
-    preds = []
-    for mid in movie_ids:
-        try:
-            score = svd_model.predict(user_id, mid).est
-        except:
-            score = 0
-        preds.append((mid, score))
-    top_n = sorted(preds, key=lambda x: x[1], reverse=True)[:n]
-    result = []
-    for mid, score in top_n:
-        m = Movie.query.get(mid)
-        title = getattr(m, "title_uk", None) or movies_df.loc[movies_df.movieId==mid, "title"].iloc[0]
-        result.append({"movie_id": mid, "title": title, "score": round(score,4)})
-    return jsonify(result)
-
-# Прямые эндпоинты рекомендаций
-@app.route("/recommend/svd/<int:user_id>", methods=["GET"])
-def rec_svd(user_id):
-    ids = movies_df.movieId.tolist()
-    preds = [(mid, svd_model.predict(user_id, mid).est) for mid in ids]
-    top10 = sorted(preds, key=lambda x: x[1], reverse=True)[:10]
-    return jsonify([{"movieId":m, "title": movies_df.loc[movies_df.movieId==m, "title"].iloc[0]} for m,_ in top10])
-
-@app.route("/recommend/knn/<int:user_id>", methods=["GET"])
-def rec_knn(user_id):
-    try:
-        iu = trainset.to_inner_uid(str(user_id))
-        neighs = knn_model.get_neighbors(iu, k=10)
-        mids = [int(trainset.to_raw_iid(i)) for i in neighs]
-    except:
-        mids = []
-    if not mids:
-        mids = movies_df.sort_values("popularity", ascending=False).movieId.head(10).tolist()
-    return jsonify([{"movieId":m, "title": movies_df.loc[movies_df.movieId==m, "title"].iloc[0]} for m in mids])
-
-@app.route("/recommend/content/<int:movie_id>", methods=["GET"])
-def rec_content(movie_id):
-    idx = movie_id_map.get(movie_id)
-    if idx is None:
-        return rec_cf(movie_id)
-    _, neighs = content_nn.kneighbors(content_features[idx], n_neighbors=10)
-    inv_map = {v:k for k,v in movie_id_map.items()}
-    results = []
-    for n in neighs[0]:
-        mid = inv_map[n]
-        title = movies_df.loc[movies_df.movieId==mid, "title"].iloc[0]
-        results.append({"movieId": mid, "title": title})
-    return jsonify(results)
-
-@app.route("/recommend/cf/<int:movie_id>", methods=["GET"])
-def rec_cf(movie_id):
-    ids = movies_df.movieId.tolist()
-    preds = [(mid, svd_model.predict(0, mid).est) for mid in ids]
-    top = sorted(preds, key=lambda x: x[1], reverse=True)[1:11]
-    return jsonify([{"movieId":m, "title": movies_df.loc[movies_df.movieId==m, "title"].iloc[0]} for m,_ in top])
-
-@app.route("/recommend/movie/<int:movie_id>", methods=["GET"])
-def rec_by_movie(movie_id):
-    return rec_content(movie_id)
-
-@app.route("/recommend/hybrid/<int:user_id>", methods=["GET"])
-def rec_hybrid(user_id):
-    ids = movies_df.movieId.tolist()
-    preds = [(mid, hybrid.predict(user_id, mid)) for mid in ids]
-    top10 = sorted(preds, key=lambda x: x[1], reverse=True)[:10]
-    return jsonify([{"movieId":m, "title": movies_df.loc[movies_df.movieId==m, "title"].iloc[0]} for m,_ in top10])
-
-# CRUD для оценок
-@app.route("/api/ratings", methods=["POST"])
+# ── Ratings endpoints ────────────────────────────────────────────────
+@app.route('/api/ratings', methods=['POST'])
 @jwt_required()
-def create_or_update_rating():
-    data = request.get_json() or {}
-    mid = data.get("movieId")
-    score = data.get("score")
-    try:
-        score = float(score)
-    except:
-        return jsonify(error="Невірний формат оцінки"), 400
-    if mid is None or not (1 <= score <= 5):
-        return jsonify(error="Невірні дані"), 400
-    uid = int(get_jwt_identity())
-    r = Rating.query.filter_by(user_id=uid, movie_id=mid).first()
-    if r:
-        r.score = score
-    else:
-        r = Rating(user_id=uid, movie_id=mid, score=score)
-        db.session.add(r)
+def create_rating():
+    user_id = get_jwt_identity()
+    data    = request.get_json()
+    r = Rating(user_id=user_id, movie_id=data['movieId'], score=data['score'])
+    db.session.add(r)
     db.session.commit()
-    return jsonify(message="Оцінка збережена", rating={"movieId": mid, "score": score}), 200
+    return jsonify({'message':'ok'}), 201
 
-@app.route("/api/ratings/<int:user_id>", methods=["GET"])
-def get_user_ratings(user_id):
+@app.route('/api/ratings/<int:user_id>', methods=['GET'])
+@jwt_required()
+def get_ratings(user_id):
     ratings = Rating.query.filter_by(user_id=user_id).all()
-    result = [{"movieId": r.movie_id, "score": r.score} for r in ratings]
-    return jsonify(result), 200
+    return jsonify([{'movieId':r.movie_id,'score':r.score} for r in ratings]), 200
 
-# Лайки и избранное
-@app.route("/like/<int:movie_id>", methods=["POST"])
-@jwt_required()
-def like_movie(movie_id):
-    try:
-        uid = int(get_jwt_identity())
-        fav = List.query.filter_by(user_id=uid, name="Favorites").first()
-        if not fav:
-            fav = List(name="Favorites", user_id=uid)
-            db.session.add(fav)
-            db.session.commit()
-        if not ListMovie.query.filter_by(list_id=fav.id, movie_id=movie_id).first():
-            db.session.add(ListMovie(list_id=fav.id, movie_id=movie_id))
-            db.session.commit()
-        return jsonify(message="Added to Favorites"), 200
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify(error=str(e)), 500
 
-@app.route("/like/<int:movie_id>", methods=["DELETE"])
-@jwt_required()
-def unlike_movie(movie_id):
-    uid = int(get_jwt_identity())
-    fav = List.query.filter_by(user_id=uid, name="Favorites").first()
-    if fav:
-        ListMovie.query.filter_by(list_id=fav.id, movie_id=movie_id).delete()
+# ── Favorites endpoints ─────────────────────────────────────────────
+def get_or_create_fav_list(user_id):
+    fav_list = List.query.filter_by(user_id=user_id, name='favorites').first()
+    if not fav_list:
+        fav_list = List(name='favorites', user_id=user_id)
+        db.session.add(fav_list)
         db.session.commit()
-    return jsonify(message="Removed from Favorites"), 200
+    return fav_list
 
-@app.route("/favorites", methods=["GET"])
+@app.route('/api/recommend/user/favorites', methods=['GET','POST','DELETE'])
 @jwt_required()
-def get_favorites():
-    uid = int(get_jwt_identity())
-    fav = List.query.filter_by(user_id=uid, name="Favorites").first()
-    if not fav:
-        return jsonify([]), 200
+def user_favorites():
+    user_id = get_jwt_identity()
+    fav_list = get_or_create_fav_list(user_id)
+
+    if request.method == 'GET':
+        # возвращаем полный список фильмов и их тайтлы
+        movies = []
+        for lm in fav_list.movies:
+            m = Movie.query.get(lm.movie_id)
+            if m:
+                movies.append({'movieId': m.movie_id, 'title': m.title})
+        return jsonify(movies), 200
+
+    data = request.get_json()
+    movie_id = data.get('movieId')
+    if request.method == 'POST':
+        # добавляем связь ListMovie
+        if not any(lm.movie_id==movie_id for lm in fav_list.movies):
+            lm = ListMovie(list_id=fav_list.id, movie_id=movie_id)
+            db.session.add(lm)
+            db.session.commit()
+        return jsonify({'message':'added'}), 201
+
+    # DELETE
+    lm = ListMovie.query.filter_by(list_id=fav_list.id, movie_id=movie_id).first()
+    if lm:
+        db.session.delete(lm)
+        db.session.commit()
+    return jsonify({'message':'deleted'}), 200
+
+
+# ── Movie-based recommendations ─────────────────────────────────────
+@app.route('/api/recommend/movie/<int:movie_id>', methods=['GET'])
+def recommend_by_movie(movie_id):
+    """
+    Использует path-параметр movie_id, а не JSON.
+    ?n= сколько вернуть
+    ?alg= knn или svd
+    """
+    # читаем параметры
+    try:
+        n = int(request.args.get('n', 5))
+    except ValueError:
+        n = 5
+    alg = request.args.get('alg', 'knn').lower()
+
+    # получаем "сырые" рекомендации
+    raw = svd_recommend(movie_id, n) if alg == 'svd' else knn_recommend(movie_id, n)
+
+    # подтягиваем названия из БД
     out = []
-    for lm in fav.movies:
-        title = movies_df.loc[movies_df.movieId==lm.movie_id, "title"].iloc[0]
-        out.append({"movieId": lm.movie_id, "title": title})
+    for r in raw:
+        m = Movie.query.filter_by(movie_id=r['movieId']).first()
+        if m:
+            out.append({
+                'movieId': m.movie_id,
+                'title':   m.title,
+                'score':   round(r['score'], 3)
+            })
     return jsonify(out), 200
 
-@app.route("/recommend/user/favorites", methods=["GET"])
-@jwt_required()
-def recommend_from_favorites():
-    uid = int(get_jwt_identity())
-    fav = List.query.filter_by(user_id=uid, name="Favorites").first()
-    if not fav:
+@app.route('/api/movies/search')
+def search_local_movies():
+    """Возвращает до 10 фильмов из локальной БД по части названия."""
+    q = request.args.get('q','').strip()
+    if not q:
         return jsonify([]), 200
-    scores = {}
-    for lm in fav.movies:
-        try:
-            ii = trainset.to_inner_iid(str(lm.movie_id))
-            neighs = knn_model.get_neighbors(ii, k=10)
-            for rank, iid in enumerate(neighs, 1):
-                raw = int(trainset.to_raw_iid(iid))
-                scores[raw] = scores.get(raw, 0) + 1.0/rank
-        except:
-            continue
-    for lm in fav.movies:
-        scores.pop(lm.movie_id, None)
-    top10 = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:10]
-    return jsonify([{"movieId": m, "title": movies_df.loc[movies_df.movieId==m, "title"].iloc[0]} for m,_ in top10]), 200
+    # ilike для нечувствительного поиска
+    results = Movie.query.filter(Movie.title.ilike(f'%{q}%')) \
+                         .order_by(Movie.title).limit(10).all()
+    return jsonify([
+        {'movieId': m.movie_id, 'title': m.title}
+        for m in results
+    ]), 200
 
-# Запуск приложения
-def main():
-    with app.app_context():
-        print("Engine URL:", db.engine.url)
-        db.create_all()
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
-
-if __name__ == "__main__":
-    main()
+# ── Run ─────────────────────────────────────────────────────────────
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
