@@ -3,22 +3,25 @@ import React, { useState } from 'react'
 import axios from 'axios'
 import { API } from '../config'
 import MovieCard from '../components/MovieCard'
-
 import {
   Box,
-  Heading,
-  Input,
   Button,
+  Input,
   SimpleGrid,
   VStack,
   Alert,
+  AlertIcon,
+  useColorModeValue
 } from '@chakra-ui/react'
-import { AlertIcon } from '@chakra-ui/icons'
+import { useNavigate } from 'react-router-dom'
+
 export default function Recommendations() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [selectedMovie, setSelectedMovie] = useState(null)
   const [error, setError] = useState(null)
+  const navigate = useNavigate()
+  const bg = useColorModeValue('gray.50', 'gray.800')
 
   const handleSearch = async () => {
     setError(null)
@@ -50,8 +53,7 @@ export default function Recommendations() {
   }
 
   return (
-    <Box maxW="8xl" mx="auto" p={4}>
-      <Heading mb={4}>Рекомендовані фільми</Heading>
+    <Box bg={bg} minH="100vh" p={4}>
       {error && (
         <Alert status="error" mb={4}>
           <AlertIcon />
@@ -60,7 +62,7 @@ export default function Recommendations() {
       )}
 
       {!selectedMovie ? (
-        <VStack spacing={4} mb={6} align="start">
+        <VStack spacing={4} mb={6}>
           <Box display="flex" w="100%">
             <Input
               placeholder="Введіть назву фільму"
@@ -79,12 +81,12 @@ export default function Recommendations() {
         </Button>
       )}
 
-      <SimpleGrid columns={[1, 2, 3]} spacing={6}>
+      <SimpleGrid columns={[1, 2, 3]} spacing={6} alignItems="stretch">
         {results.map(movie => (
           <Box
             key={movie.movieId}
-            onClick={!selectedMovie ? () => handleSelect(movie) : undefined}
-            cursor={!selectedMovie ? 'pointer' : 'default'}
+            display="flex"
+            flexDir="column"
           >
             <MovieCard
               movie={movie}
