@@ -1,54 +1,57 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-import Recommendations from './pages/Recommendations';
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Profile from './pages/Profile';
-import Lists from './pages/Lists';
-import Favorites from './pages/FavoritesRecommendations';
+// src/App.jsx
+import React from 'react'
+import { Routes, Route, Link as RouterLink } from 'react-router-dom'
+import {
+  Box,
+  Flex,
+  Heading,
+  Spacer,
+  HStack,
+  Link,
+  Container
+} from '@chakra-ui/react'
+
+import Recommendations from './pages/Recommendations'
+import Favorites       from './pages/Favorites'
+import Profile         from './pages/Profile'
+import Login           from './pages/Login'
+import Register        from './pages/Register'
+
+function NavBar() {
+  return (
+    <Flex as="nav" bg="blue.600" color="white" p={4} align="center">
+      <Heading size="md">
+        <Link as={RouterLink} to="/" _hover={{ textDecoration: 'none' }}>
+          MovieReco
+        </Link>
+      </Heading>
+      <Spacer />
+      <HStack spacing={6}>
+        <Link as={RouterLink} to="/recommendations">Рекомендації</Link>
+        <Link as={RouterLink} to="/favorites">Улюблені</Link>
+        <Link as={RouterLink} to="/profile">Профіль</Link>
+        <Link as={RouterLink} to="/login">Вхід</Link>
+        <Link as={RouterLink} to="/register">Реєстрація</Link>
+      </HStack>
+    </Flex>
+  )
+}
+
 export default function App() {
   return (
-    <BrowserRouter>
-      <nav className="navbar navbar-expand-lg navbar-light bg-light">
-        <div className="container">
-          <Link className="navbar-brand" to="/">MovieReco</Link>
-          <div>
-            <ul className="navbar-nav me-auto mb-2 mb-lg-0">
-              <li className="nav-item">
-                <Link className="nav-link" to="/recommendations">Рекомендації</Link>
-              </li>
-              <li className="nav-item">
-                <Link className="nav-link" to="/lists">Списки</Link>
-              </li>
-              <li className="nav-item">
-                <Link className="nav-link" to="/favorites">Улюблені</Link>
-              </li>
-              <li className="nav-item">
-                <Link className="nav-link" to="/profile">Профіль</Link>
-              </li>
-            </ul>
-            <ul className="navbar-nav">
-              <li className="nav-item">
-                <Link className="nav-link" to="/login">Вхід</Link>
-              </li>
-              <li className="nav-item">
-                <Link className="nav-link" to="/register">Реєстрація</Link>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </nav>
-
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/recommendations" element={<Recommendations />} />
-        <Route path="/lists" element={<Lists />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/favorites" element={<Favorites />} />
-      </Routes>
-    </BrowserRouter>
-  );
+    <>
+      <NavBar />
+      {/* основной контейнер под страницы */}
+      <Container maxW="container.xl" py={6}>
+        <Routes>
+          <Route path="/" element={<Recommendations />} />
+          <Route path="/recommendations" element={<Recommendations />} />
+          <Route path="/favorites"       element={<Favorites />} />
+          <Route path="/profile"         element={<Profile />} />
+          <Route path="/login"           element={<Login />} />
+          <Route path="/register"        element={<Register />} />
+        </Routes>
+      </Container>
+    </>
+  )
 }
