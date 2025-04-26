@@ -58,15 +58,16 @@ function NavBar() {
               as={NavLink}
               key={to}
               to={to}
-              // стили активной ссылки
-              _activeLink={{
-                color: 'teal.300',
-                fontWeight: 'bold',
-                borderBottom: '2px solid',
-                borderColor: 'teal.300'
+              _hover={{ textDecoration: 'none' }}
+              sx={{
+                // стили для активной ссылки
+                '&.active': {
+                  color: 'teal.300',
+                  fontWeight: 'bold',
+                  borderBottom: '2px solid',
+                  borderColor: 'teal.300',
+                }
               }}
-              // убираем подчёркивание по ховеру
-              _hover={{ textDecor: 'none' }}
             >
               {label}
             </ChakraLink>
