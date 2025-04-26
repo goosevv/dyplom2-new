@@ -1,6 +1,6 @@
 // src/App.jsx
 import React from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import { Box } from '@chakra-ui/react'
 
 import NavBar          from './components/NavBar'
@@ -12,11 +12,14 @@ import Login           from './pages/Login'
 import Register        from './pages/Register'
 
 export default function App() {
+  const { pathname } = useLocation()
+  // не отступать на главной
+  const paddingTop = pathname === '/' ? 0 : '80px'
   return (
     <>
       <NavBar />
       {/* Отступ сверху равен высоте прозрачной шапки */}
-      <Box pt={{ base: '80px', md: '100px' }}>
+      <Box pt={paddingTop}>
         <Routes>
           <Route path="/"               element={<Home />} />
           <Route path="/recommendations" element={<Recommendations />} />
