@@ -1,16 +1,18 @@
-// src/App.jsx
+// src/App.jsx (или где лежит ваш NavBar)
 import React from 'react'
-import { Routes, Route, Link as RouterLink } from 'react-router-dom'
+import { Routes, Route, Link as ChakraLink } from 'react-router-dom'
 import {
   Box,
   Flex,
   Heading,
   Spacer,
   HStack,
-  Link,
-  Container
+  Container,
+  useColorModeValue
 } from '@chakra-ui/react'
+import { NavLink } from 'react-router-dom'  // ← импортируем из react-router
 
+import Home            from './pages/Home'
 import Recommendations from './pages/Recommendations'
 import Favorites       from './pages/Favorites'
 import Profile         from './pages/Profile'
@@ -18,21 +20,59 @@ import Login           from './pages/Login'
 import Register        from './pages/Register'
 
 function NavBar() {
+  // прозрачный фон, либо полупрозрачный тёмный
+  const bg = useColorModeValue('rgba(255,255,255,0.8)', 'rgba(0,0,0,0.6)')
+
   return (
-    <Flex as="nav" bg="blue.600" color="white" p={4} align="center">
-      <Heading size="md">
-        <Link as={RouterLink} to="/" _hover={{ textDecoration: 'none' }}>
-          MovieReco
-        </Link>
-      </Heading>
-      <Spacer />
-      <HStack spacing={6}>
-        <Link as={RouterLink} to="/recommendations">Рекомендації</Link>
-        <Link as={RouterLink} to="/favorites">Улюблені</Link>
-        <Link as={RouterLink} to="/profile">Профіль</Link>
-        <Link as={RouterLink} to="/login">Вхід</Link>
-        <Link as={RouterLink} to="/register">Реєстрація</Link>
-      </HStack>
+    <Flex
+      as="nav"
+      // делаем шапку fixed, чтобы весь контент скользил под ней
+      position="fixed"
+      top="0"
+      w="100%"
+      bg={bg}
+      // добавим небольшую тень, чтобы шапка отделялась от контента
+      boxShadow="sm"
+      zIndex="banner"
+      align="center"
+      py={4}
+      px={{ base: 4, md: 8 }}
+    >
+      <Container maxW="container.xl" display="flex" alignItems="center">
+        <Heading size="md">
+          <ChakraLink as={NavLink} to="/" _hover={{ textDecor: 'none' }}>
+            MovieReco
+          </ChakraLink>
+        </Heading>
+        <Spacer />
+        <HStack spacing={6}>
+          {[
+            ['/',            'Головна'],
+            ['/recommendations','Рекомендації'],
+            ['/favorites',   'Улюблені'],
+            ['/profile',     'Профіль'],
+            ['/login',       'Вхід'],
+            ['/register',    'Реєстрація'],
+          ].map(([to, label]) => (
+            <ChakraLink
+              as={NavLink}
+              key={to}
+              to={to}
+              // стили активной ссылки
+              _activeLink={{
+                color: 'teal.300',
+                fontWeight: 'bold',
+                borderBottom: '2px solid',
+                borderColor: 'teal.300'
+              }}
+              // убираем подчёркивание по ховеру
+              _hover={{ textDecor: 'none' }}
+            >
+              {label}
+            </ChakraLink>
+          ))}
+        </HStack>
+      </Container>
     </Flex>
   )
 }
@@ -41,17 +81,18 @@ export default function App() {
   return (
     <>
       <NavBar />
-      {/* основной контейнер под страницы */}
-      <Container maxW="container.xl" py={6}>
+      {/* во весь экран, отступ сверху на высоту шапки */}
+      <Box pt="80px">
         <Routes>
-          <Route path="/" element={<Recommendations />} />
+          <Route path="/" element={<Home />} />
           <Route path="/recommendations" element={<Recommendations />} />
           <Route path="/favorites"       element={<Favorites />} />
           <Route path="/profile"         element={<Profile />} />
           <Route path="/login"           element={<Login />} />
           <Route path="/register"        element={<Register />} />
         </Routes>
-      </Container>
+      </Box>
     </>
   )
 }
+
