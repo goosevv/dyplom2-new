@@ -2,6 +2,17 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import {
+  Box,
+  Image,
+  Heading,
+  Text,
+  IconButton,
+  Spinner,
+  Stack
+} from '@chakra-ui/react'
+import { FaHeart, FaRegHeart } from 'react-icons/fa'
+
+import {
   API,
   authHeaders,
   TMDB_KEY,
@@ -57,13 +68,9 @@ export default function MovieCard({ movie, onClickCard }) {
 
   if (details === null) {
     return (
-      <div className="col d-flex">
-        <div className="card flex-fill d-flex flex-column">
-          <div className="card-body d-flex justify-content-center align-items-center">
-            Завантаження…
-          </div>
-        </div>
-      </div>
+      <Box p={4} borderWidth="1px" borderRadius="lg" h="100%">
+        <Spinner mx="auto" my={8} />
+      </Box>
     )
   }
 
@@ -75,33 +82,42 @@ export default function MovieCard({ movie, onClickCard }) {
   const genres = ids.map(id => genreMap[id]).filter(Boolean).join(', ')
 
   return (
-    <div
-      className="col d-flex"
+    <Box
+      borderWidth="1px"
+      borderRadius="lg"
+      overflow="hidden"
+      h="100%"
+      display="flex"
+      flexDirection="column"
       onClick={onClickCard}
-      style={{ cursor: onClickCard ? 'pointer' : 'default' }}
     >
-      <div className="card flex-fill d-flex flex-column">
-        <img
-          src={poster}
-          className="card-img-top"
-          alt={details.title}
-          style={{ objectFit: 'cover', height: '300px' }}
+      <Image
+        src={poster}
+        alt={details.title}
+        objectFit="cover"
+        h="300px"
+        w="100%"
+      />
+      <Box p={4} flex="1">
+        <Stack spacing={2} h="100%">
+          <Heading as="h5" size="md">
+            {details.title}
+          </Heading>
+          <Text color="gray.500" mt="auto">
+            {year}{genres && ` • ${genres}`}
+          </Text>
+        </Stack>
+      </Box>
+      <Box p={2} textAlign="right">
+        <IconButton
+          aria-label="Like"
+          icon={liked ? <FaHeart /> : <FaRegHeart />}
+          onClick={toggleLike}
+          variant="outline"
+          colorScheme="red"
         />
-        <div className="card-body flex-grow-1 d-flex flex-column">
-          <h5 className="card-title">{details.title}</h5>
-          <p className="card-text text-muted mt-auto">
-            {year} {genres && <>• {genres}</>}
-          </p>
-        </div>
-        <div className="card-footer bg-white border-top-0 text-end">
-          <button
-            className="btn btn-outline-danger"
-            onClick={toggleLike}
-          >
-            {liked ? '💖' : '🤍'}
-          </button>
-        </div>
-      </div>
-    </div>
+      </Box>
+    </Box>
   )
 }
+

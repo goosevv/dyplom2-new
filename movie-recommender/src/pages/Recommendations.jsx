@@ -4,6 +4,17 @@ import axios from 'axios'
 import { API } from '../config'
 import MovieCard from '../components/MovieCard'
 
+import {
+  Box,
+  Heading,
+  Input,
+  Button,
+  SimpleGrid,
+  VStack,
+  Alert,
+  AlertIcon
+} from '@chakra-ui/react'
+
 export default function Recommendations() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
@@ -16,8 +27,7 @@ export default function Recommendations() {
       const { data } = await axios.get(`${API}/search`, { params: { q: query } })
       setResults(data)
       setSelectedMovie(null)
-    } catch (e) {
-      console.error('Search error', e)
+    } catch {
       setError('Помилка пошуку. Спробуйте інший запит.')
     }
   }
@@ -28,8 +38,7 @@ export default function Recommendations() {
       setSelectedMovie(movie)
       const { data } = await axios.get(`${API}/recommend/movie/${movie.movieId}`)
       setResults(data)
-    } catch (e) {
-      console.error('Recommend error', e)
+    } catch {
       setError('Не вдалося завантажити рекомендації.')
     }
   }
@@ -42,45 +51,49 @@ export default function Recommendations() {
   }
 
   return (
-    <div className="container mt-4">
-      <h2>Рекомендовані фільми</h2>
-      {error && <div className="alert alert-danger">{error}</div>}
-
-      {/* Форма пошуку */}
-      {!selectedMovie && (
-        <div className="input-group mb-3">
-          <input
-            type="text"
-            className="form-control"
-            placeholder="Введіть назву фільму"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-          />
-          <button className="btn btn-primary" onClick={handleSearch}>
-            Знайти
-          </button>
-        </div>
+    <Box maxW="8xl" mx="auto" p={4}>
+      <Heading mb={4}>Рекомендовані фільми</Heading>
+      {error && (
+        <Alert status="error" mb={4}>
+          <AlertIcon />
+          {error}
+        </Alert>
       )}
 
-      {/* Кнопка "назад" */}
-      {selectedMovie && (
-        <button className="btn btn-secondary mb-3" onClick={reset}>
+      {!selectedMovie ? (
+        <VStack spacing={4} mb={6} align="start">
+          <Box display="flex" w="100%">
+            <Input
+              placeholder="Введіть назву фільму"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              mr={2}
+            />
+            <Button colorScheme="blue" onClick={handleSearch}>
+              Знайти
+            </Button>
+          </Box>
+        </VStack>
+      ) : (
+        <Button mb={6} onClick={reset}>
           Повернутись до пошуку
-        </button>
+        </Button>
       )}
 
-      {/* Сетка карточек */}
-      <div className="row row-cols-1 row-cols-md-3 g-4 align-items-stretch">
+      <SimpleGrid columns={[1, 2, 3]} spacing={6}>
         {results.map(movie => (
-          <div
+          <Box
             key={movie.movieId}
             onClick={!selectedMovie ? () => handleSelect(movie) : undefined}
-            style={{ cursor: !selectedMovie ? 'pointer' : 'default' }}
+            cursor={!selectedMovie ? 'pointer' : 'default'}
           >
-            <MovieCard movie={movie} />
-          </div>
+            <MovieCard
+              movie={movie}
+              onClickCard={!selectedMovie ? () => handleSelect(movie) : undefined}
+            />
+          </Box>
         ))}
-      </div>
-    </div>
+      </SimpleGrid>
+    </Box>
   )
 }
