@@ -1,69 +1,74 @@
-// src/pages/Register.jsx
-import React, { useState } from 'react'
-import axios from 'axios'
+import React, { useState } from 'react';
 import {
   Box,
-  Heading,
+  VStack,
   FormControl,
   FormLabel,
   Input,
   Button,
   Alert,
   AlertIcon,
-  VStack
-} from '@chakra-ui/react'
-import { useNavigate } from 'react-router-dom'
-import { API_ROOT } from '../config'
+  useColorModeValue
+} from '@chakra-ui/react';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 export default function Register() {
-  const [name, setName]         = useState('')
-  const [email, setEmail]       = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError]       = useState(null)
-  const [success, setSuccess]   = useState(null)
-  const navigate                = useNavigate()
+  const navigate = useNavigate();
+  const bg = useColorModeValue('white', 'gray.700');
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError(null)
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
     try {
-      await axios.post(`${API_ROOT}/register`, { name, email, password })
-      setSuccess('Реєстрація успішна! Тепер можете зайти.')
-      setTimeout(() => navigate('/login'), 1500)
+      await axios.post('/auth/register', { name, email, password });
+      navigate('/login');
     } catch (err) {
-      setError(err.response?.data?.message || 'Помилка реєстрації')
+      setError(
+        err.response?.data?.message ||
+        'Помилка реєстрації — спробуйте пізніше.'
+      );
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <Box maxW="sm" mx="auto" mt={12} p={6} borderWidth="1px" borderRadius="md">
-      <Heading mb={6} textAlign="center">Реєстрація</Heading>
-
+    <Box
+      maxW="md"
+      mx="auto"
+      mt={12}
+      p={6}
+      bg={bg}
+      borderRadius="md"
+      boxShadow="lg"
+    >
       {error && (
         <Alert status="error" mb={4}>
-          <AlertIcon />
-          {error}
-        </Alert>
-      )}
-      {success && (
-        <Alert status="success" mb={4}>
-          <AlertIcon />
-          {success}
+          <AlertIcon /> {error}
         </Alert>
       )}
 
       <form onSubmit={handleSubmit}>
-        <VStack spacing={4}>
+        <VStack spacing={4} align="stretch">
           <FormControl id="name" isRequired>
             <FormLabel>Ім’я</FormLabel>
             <Input
+              type="text"
               value={name}
               onChange={e => setName(e.target.value)}
             />
           </FormControl>
 
           <FormControl id="email" isRequired>
-            <FormLabel>Електронна пошта</FormLabel>
+            <FormLabel>Email</FormLabel>
             <Input
               type="email"
               value={email}
@@ -80,11 +85,16 @@ export default function Register() {
             />
           </FormControl>
 
-          <Button colorScheme="teal" type="submit" w="full">
-            Зареєструватися
+          <Button
+            type="submit"
+            colorScheme="blue"
+            w="100%"    
+            isLoading={loading}
+          >
+            Реєстрація
           </Button>
         </VStack>
       </form>
     </Box>
-  )
+  );
 }
