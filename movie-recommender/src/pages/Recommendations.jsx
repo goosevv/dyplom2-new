@@ -3,20 +3,26 @@ import React, { useState, useContext } from "react";
 import axios from "axios";
 import {
   Box,
-  Input,
-  Button,
-  SimpleGrid,
   VStack,
+  Flex,
+  Button,
+  ButtonGroup,
+  Select,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  SimpleGrid,
+  Spinner,
   Alert,
   AlertIcon,
-  Text,
-  Flex,
-  ButtonGroup,
-  Skeleton,
+  useColorModeValue,
 } from "@chakra-ui/react";
-import MovieCard from "../components/MovieCard";
-import { LocaleContext } from "../LocaleContext";
-import SearchBox from "../components/SearchBox";
+import { SearchIcon } from '@chakra-ui/icons';
+import InfiniteScroll from 'react-infinite-scroll-component';
+import SearchBox from '../components/SearchBox';
+import MovieCard from '../components/MovieCard';
+import MovieModal from '../components/MovieModal';
+import { LocaleContext } from '../LocaleContext';
 
 export default function Recommendations() {
   const { tmdbLang } = useContext(LocaleContext);
@@ -91,7 +97,39 @@ export default function Recommendations() {
           <AlertIcon /> {error}
         </Alert>
       )}
+      <VStack spacing={6} mb={8} align="stretch">
+        <InputGroup maxW="800px" w="100%" mx="auto">
+          <InputLeftElement
+            pointerEvents="none"
+            children={<SearchIcon color="gray.400" />}
+          />
+          <Input
+            placeholder="Введіть назву фільму"
+            size="lg"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+            bg={useColorModeValue("white", "gray.700")}
+            borderRadius="lg"
+            _focus={{
+              boxShadow:
+                "0 0 0 2px " + useColorModeValue("blue.300", "blue.600"),
+              borderColor: useColorModeValue("blue.300", "blue.600"),
+            }}
+          />
+        </InputGroup>
 
+        <Box textAlign="center">
+          <Button
+            colorScheme="blue"
+            size="md"
+            onClick={handleSearch}
+            isLoading={loading}
+            px={8}>
+            Знайти
+          </Button>
+        </Box>
+      </VStack>
       {/* 1) Поисковая форма */}
       {!selectedMovie && (
         <VStack spacing={4} mb={6}>
@@ -106,21 +144,26 @@ export default function Recommendations() {
           </Box>
         </VStack>
       )}
-      <Flex wrap="wrap" mb={4} gap={2}>
+  {displayed.length > 0 && (
+      <Flex wrap="wrap" justify="center" align="center" mb={6} gap={4}>
         <Select
           placeholder="Жанр"
+          size="md"
+          minW="150px"
           value={genreFilter}
-          onChange={(e) => setGenreFilter(e.target.value)}
-          w="150px">
+          onChange={e => setGenreFilter(e.target.value)}
+        >
           <option value="Action">Action</option>
           <option value="Drama">Drama</option>
           {/* … остальные жанры … */}
         </Select>
         <Select
           placeholder="Рік"
+          size="md"
+          minW="120px"
           value={yearFilter}
           onChange={(e) => setYearFilter(e.target.value)}
-          w="120px">
+          >
           {Array.from({ length: 30 }).map((_, i) => {
             const y = 1995 + i;
             return (
@@ -130,10 +173,14 @@ export default function Recommendations() {
             );
           })}
         </Select>
-        <Button onClick={() => setSortBy("popularity")}>По популярності</Button>
-        <Button onClick={() => setSortBy("score")}>По рейтингу</Button>
+        <Button size="md" onClick={() => setSortBy('popularity')}>
+          По популярності
+        </Button>
+        <Button size="md" onClick={() => setSortBy('score')}>
+          По рейтингу
+        </Button>
       </Flex>
-
+   )}
       {/* 2) Сетка результатов поиска */}
       {!selectedMovie && (
         <SimpleGrid columns={[1, 2, 3, 4]} spacing={6}>
@@ -199,7 +246,6 @@ export default function Recommendations() {
               ? Array.from({ length: 8 }).map((_, i) => (
                   <Skeleton key={i} height="350px" borderRadius="md" />
                 ))
-                
               : recommendations.map((m) => (
                   <MovieCard key={m.movieId} movie={m} showRating={true} />
                 ))}
