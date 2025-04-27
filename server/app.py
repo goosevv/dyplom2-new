@@ -72,7 +72,7 @@ def svd_recommend(movie_id: int, n: int):
     """
     import numpy as np
     trainset = svd_model.trainset
-    raw_iid  = str(movie_id)
+    raw_iid  = movie_id
     try:
         inner_id = trainset.to_inner_iid(raw_iid)
     except ValueError:
@@ -98,55 +98,55 @@ def svd_recommend(movie_id: int, n: int):
 
 # ── 1) Гибридный рекоммендер ───────────────────────────────────────────
 
-# веса для комбинирования
-# даём больше веса content-based
+# вверху файла
 W_KNN     = 0.2
-W_CONTENT = 0.8
-
-
+W_CONTENT = 0.4
+W_SVD     = 0.4  # теперь сумма = 1.0
 
 def hybrid_recommend(movie_id: int, n: int) -> list[dict]:
-    """
-    Гибрид: объединяем knn + content, fallback на популярных.
-    Если у фильма мало рейтингов (<5), игнорируем KNN-рекомендации.
-    """
-    # Считаем, сколько оценок есть у этого фильма в БД
+    # считаем, сколько есть рейтингов, чтобы отключить KNN при малом числе
     rating_count = Rating.query.filter_by(movie_id=movie_id).count()
+    recs_knn     = knn_recommend(movie_id, n*2)     if rating_count >= 5 else []
+    recs_content = content_recommend(movie_id, n*2)
+    recs_svd     = svd_recommend(movie_id, n*2)
 
-    # Если оценок мало, обнуляем KNN
-    if rating_count < 5:
-        recs_knn = []
-    else:
-        recs_knn = knn_recommend(movie_id, n * 2)
+    # вспомогательная нормализация в [0,1]
+    def normalize(recs):
+        if not recs:
+            return {}
+        scores = [r['score'] for r in recs]
+        lo, hi = min(scores), max(scores)
+        denom = hi - lo if hi != lo else 1.0
+        return {r['movieId']: (r['score'] - lo) / denom for r in recs}
 
-    recs_content = content_recommend(movie_id, n * 2)
+    norm_knn     = normalize(recs_knn)
+    norm_content = normalize(recs_content)
+    norm_svd     = normalize(recs_svd)
 
-    # Накопим веса
-    scores = {}
-    for r in recs_knn:
-        scores[r["movieId"]] = scores.get(r["movieId"], 0) + W_KNN * r["score"]
-    for r in recs_content:
-        scores[r["movieId"]] = scores.get(r["movieId"], 0) + W_CONTENT * r["score"]
+    # смешиваем
+    combined = {}
+    for mid, sc in norm_knn.items():
+        combined[mid] = combined.get(mid, 0) + W_KNN     * sc
+    for mid, sc in norm_content.items():
+        combined[mid] = combined.get(mid, 0) + W_CONTENT * sc
+    for mid, sc in norm_svd.items():
+        combined[mid] = combined.get(mid, 0) + W_SVD     * sc
 
-    # Если после объединения нет кандидатов — fallback на популярных
-    if not scores:
+    # если ничего не дали
+    if not combined:
         top = Movie.query.order_by(Movie.popularity.desc()).limit(n).all()
         return [
             {"movieId": m.movie_id, "title": m.title, "score": 0.0}
             for m in top
         ]
 
-    # Иначе сортируем и возвращаем первые n
-    top = sorted(scores.items(), key=lambda x: -x[1])[:n]
+    # сортируем и берём первые n
+    top = sorted(combined.items(), key=lambda x: -x[1])[:n]
     out = []
     for mid, sc in top:
-        m = Movie.query.filter_by(movie_id=mid).first()
+        m = Movie.query.get(mid)
         if m:
-            out.append({
-                "movieId": mid,
-                "title": m.title,
-                "score": round(sc, 3)
-            })
+            out.append({"movieId": mid, "title": m.title, "score": round(sc, 3)})
     return out
 
 
