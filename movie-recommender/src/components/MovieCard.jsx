@@ -10,50 +10,41 @@ import {
   Spinner,
   useColorModeValue,
   Flex,
-  VStack
+  Tooltip,
 } from '@chakra-ui/react';
-import { motion } from 'framer-motion';
 import { FaHeart, FaRegHeart } from 'react-icons/fa';
-import { LocaleContext } from '../LocaleContext';
+import ReactStars from 'react-rating-stars-component';
 import { TMDB_KEY, TMDB_API_BASE, TMDB_IMG_BASE, authHeaders } from '../config';
-
-const MotionBox = motion(Box);
-const genreCache = {};
-
-async function loadGenres(lang) {
-  if (genreCache[lang]) return genreCache[lang];
-  try {
-    const res = await axios.get(`${TMDB_API_BASE}/genre/movie/list`, {
-      params: { api_key: TMDB_KEY, language: lang }
-    });
-    const map = {};
-    res.data.genres.forEach(g => (map[g.id] = g.name));
-    genreCache[lang] = map;
-    return map;
-  } catch {
-    return {};
-  }
-}
+import { LocaleContext } from '../LocaleContext';
 
 export default function MovieCard({ movie, onClickCard, showRating }) {
+  // 1) Контекст локали
   const { tmdbLang } = useContext(LocaleContext);
-  const [details, setDetails] = useState(null);
-  const [liked, setLiked] = useState(false);
 
+  // 2) Получаем из localStorage токен
+  const token = localStorage.getItem('access_token');
+  const loggedIn = Boolean(token);
+
+  // 3) Цвета и стили
   const bg = useColorModeValue('white', 'gray.700');
   const overlayBg = useColorModeValue('rgba(255,255,255,0.9)', 'rgba(0,0,0,0.8)');
   const footerBg = useColorModeValue('whiteAlpha.900', 'blackAlpha.900');
   const textColor = useColorModeValue('gray.800', 'white');
 
+  // 4) Локальные стейты
+  const [details, setDetails] = useState(null);
+  const [liked, setLiked] = useState(false);
+  const [userRating, setUserRating] = useState(movie.scoreByUser ?? 0);
+
+  // 5) Эффект для загрузки данных
   useEffect(() => {
     let mounted = true;
-    loadGenres(tmdbLang);
-    const favs = JSON.parse(localStorage.getItem('favorites') || '[]');
-    setLiked(favs.includes(movie.movieId));
-
-    const titleNoYear = movie.title.replace(/\s*\(\d{4}\)$/, '');
+    const params = {
+      api_key: TMDB_KEY,
+      query: movie.title.replace(/\s*\(\d{4}\)$/, ''),
+      language: tmdbLang,
+    };
     const yearMatch = movie.title.match(/\((\d{4})\)$/);
-    const params = { api_key: TMDB_KEY, query: titleNoYear, language: tmdbLang };
     if (yearMatch) params.year = yearMatch[1];
 
     axios
@@ -61,16 +52,19 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
       .then(r => mounted && setDetails(r.data.results?.[0] || {}))
       .catch(() => mounted && setDetails({}));
 
-    return () => { mounted = false; };
-  }, [movie.movieId, tmdbLang]);
+    return () => {
+      mounted = false;
+    };
+  }, [movie.title, tmdbLang]);
 
+  // 6) Лайк
   const toggleLike = async e => {
     e.stopPropagation();
     try {
       if (liked) {
         await axios.delete('/api/recommend/user/favorites', {
           ...authHeaders(),
-          data: { movieId: movie.movieId }
+          data: { movieId: movie.movieId },
         });
       } else {
         await axios.post(
@@ -79,16 +73,12 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
           authHeaders()
         );
       }
-      const favs = JSON.parse(localStorage.getItem('favorites') || '[]');
-      const updated = liked
-        ? favs.filter(id => id !== movie.movieId)
-        : [...favs, movie.movieId];
-      localStorage.setItem('favorites', JSON.stringify(updated));
       setLiked(!liked);
     } catch {}
   };
 
-  if (details === null) {
+  // 7) Пока нет details — спиннер
+  if (!details) {
     return (
       <Box maxW="sm" w="100%" bg={bg} textAlign="center" py={6}>
         <Spinner size="lg" />
@@ -96,20 +86,16 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
     );
   }
 
+  // 8) Готовим данные для рендера
   const poster = details.poster_path
     ? `${TMDB_IMG_BASE}${details.poster_path}`
     : '/placeholder.png';
   const year = (details.release_date || '').slice(0, 4);
-  const ids = details.genre_ids || details.genres?.map(g => g.id) || [];
-  const genres = ids
-    .map(id => genreCache[tmdbLang]?.[id])
-    .filter(Boolean)
-    .join(', ');
+  const genres = (details.genres || []).map(g => g.name).join(', ');
   const overview = details.overview || 'Опис відсутній';
 
   return (
-    <MotionBox
-      as="div"
+    <Box
       pos="relative"
       maxW="sm"
       w="100%"
@@ -117,12 +103,10 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
       boxShadow="md"
       borderRadius="md"
       overflow="hidden"
-      role="group"
       cursor="pointer"
       onClick={onClickCard}
-      initial={{ scale: 1 }}
-      whileHover={{ scale: 1.03, boxShadow: '0 8px 20px rgba(0,0,0,0.2)' }}
-      transition={{ duration: 0.2 }}
+      _hover={{ transform: 'scale(1.02)', boxShadow: 'lg' }}
+      transition="transform .2s, box-shadow .2s"
     >
       <AspectRatio ratio={2 / 3}>
         <Image src={poster} alt={details.title} objectFit="cover" />
@@ -139,22 +123,14 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
         inset="0"
         bg={overlayBg}
         opacity="0"
+        _hover={{ opacity: 1 }}
         transition="opacity .3s"
-        _groupHover={{ opacity: 1 }}
         display="flex"
         flexDirection="column"
       >
-        <VStack
-          flex="1"
-          overflowY="auto"
-          align="start"
-          spacing={2}
-          p={4}
-          color={textColor}
-        >
+        <Flex flex="1" overflowY="auto" p={4} color={textColor}>
           <Text fontSize="sm">{overview}</Text>
-        </VStack>
-
+        </Flex>
         <Flex
           p={3}
           bg={footerBg}
@@ -163,19 +139,42 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
           borderTop="1px solid"
           borderColor={useColorModeValue('gray.200', 'gray.600')}
         >
-          <Text fontSize="xs" color="gray.500" isTruncated maxW="65%">
+          <Text fontSize="xs" color="gray.500" isTruncated maxW="40%">
             {year}
             {genres && ` • ${genres}`}
           </Text>
 
           {showRating && (
-            <Text fontSize="sm" fontWeight="bold">
+            <Text fontSize="sm" fontWeight="bold" mr={2}>
               {movie.score?.toFixed(2)}
             </Text>
           )}
 
+          {loggedIn ? (
+            <ReactStars
+              count={5}
+              size={20}
+              value={userRating}
+              activeColor="#ffd700"
+              onChange={newRating => {
+                setUserRating(newRating);
+                axios.post(
+                  '/api/ratings',
+                  { movieId: movie.movieId, score: newRating },
+                  authHeaders()
+                );
+              }}
+            />
+          ) : (
+            <Tooltip label="Увійдіть, щоб оцінити">
+              <Box>
+                <FaRegHeart color="gray" />
+              </Box>
+            </Tooltip>
+          )}
+
           <IconButton
-            aria-label="Нравиться"
+            aria-label="Нравится"
             icon={liked ? <FaHeart /> : <FaRegHeart />}
             onClick={toggleLike}
             variant="ghost"
@@ -184,6 +183,6 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
           />
         </Flex>
       </Box>
-    </MotionBox>
+    </Box>
   );
 }
