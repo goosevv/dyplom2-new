@@ -93,18 +93,70 @@ def svd_recommend(movie_id: int, n: int):
             break
     return recs
 
+# ── 1) Гибридный рекоммендер ───────────────────────────────────────────
+
+# веса для комбинирования
+W_KNN     = 0.5
+W_CONTENT = 0.5
+
+def hybrid_recommend(movie_id: int, n: int) -> list[dict]:
+    """
+    Смешиваем knn_recommend и content_recommend:
+      score = W_KNN*score_knn + W_CONTENT*score_content
+    Берём top-n по итоговому score.
+    """
+    # получаем два списка recommendations
+    recs_knn     = knn_recommend(movie_id, n*2)       # берём побольше, на всякий
+    recs_content = content_recommend(movie_id, n*2)
+
+    # аккумулируем в dict: movieId → score
+    scores = {}
+    for r in recs_knn:
+        scores[r["movieId"]] = scores.get(r["movieId"], 0) + W_KNN * r["score"]
+    for r in recs_content:
+        scores[r["movieId"]] = scores.get(r["movieId"], 0) + W_CONTENT * r["score"]
+
+    # сортируем и берём первые n
+    top = sorted(
+        scores.items(),
+        key=lambda x: -x[1]
+    )[:n]
+
+    # формируем выходной формат
+    out = []
+    for movie_id, score in top:
+        m = Movie.query.filter_by(movie_id=movie_id).first()
+        if m:
+            out.append({
+                "movieId": movie_id,
+                "title": m.title,
+                "score": round(score, 3)
+            })
+    return out
+
 def content_recommend(movie_id: int, n: int):
+    """
+    Контентные рекомендации по косинусному сходству.
+    """
+    # Маппинг movieId → индекс в content_features
     idx = id_to_idx.get(movie_id)
     if idx is None:
         return []
-        dists, neighs = content_nn.kneighbors(
-           content_features[idx], n_neighbors=n+1
-     )
+
+    # Берём n+1 сосед (первый — это сам фильм)
+    dists, neighs = content_nn.kneighbors(
+        content_features[idx], n_neighbors=n+1
+    )
+
     recs = []
     for dist, neigh_idx in zip(dists[0][1:], neighs[0][1:]):
         raw_id = idx_to_id[neigh_idx]
-        recs.append({"movieId": raw_id, "score": 1 - dist})
+        # cosine distance → similarity
+        score = round(1 - float(dist), 3)
+        recs.append({"movieId": raw_id, "score": score})
     return recs
+
+
 
 def svd_fallback(n:int):
     # допустим user_id=1 (или средний user), или можно брать весь VALID_IDS
@@ -216,7 +268,16 @@ def recommend_by_movie(movie_id):
     alg = request.args.get('alg', 'knn').lower()
 
     # получаем "сырые" рекомендации
-    raw = knn_recommend(movie_id, n) if alg=='knn' else svd_recommend(movie_id, n)
+    raw = knn_recommend(movie_id, n) 
+    if alg == 'knn':
+        raw = knn_recommend(movie_id, n)
+    elif alg == 'content':
+        raw = content_recommend(movie_id, n)
+    elif alg == 'hybrid':        
+       raw = hybrid_recommend(movie_id, n)
+    else:
+       # по умолчанию SVD
+       raw = svd_recommend(movie_id, n)
 
     if not raw:
         top = Movie.query.order_by(Movie.popularity.desc()).limit(n).all()
