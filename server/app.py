@@ -35,10 +35,13 @@ with open(os.path.join(MODELS_DIR, 'knn_model.pkl'), 'rb') as f:
     knn_model = pickle.load(f)
 with open(os.path.join(MODELS_DIR, 'svd_model.pkl'), 'rb') as f:
     svd_model = pickle.load(f)
+with open(os.path.join(MODELS_DIR, "content_nn.pkl"), "rb") as f:
+    content_nn, movie_id_map = pickle.load(f)
+content_features = scipy.sparse.load_npz(os.path.join(MODELS_DIR, "content_features.npz"))
 
 trainset = knn_model.trainset
 _raw2inner = getattr(trainset, '_raw2inner_id_items', None) or trainset._raw2inner_id_items
-VALID_IDS = set(int(rid) for rid in _raw2inner.keys())
+VALID_IDS = set(int(rid) for rid in trainset._raw2inner_id_items.keys())
 # ── Recommendation helpers ─────────────────────────────────────────
 def knn_recommend(movie_id: int, n: int):
     """
@@ -88,6 +91,28 @@ def svd_recommend(movie_id: int, n: int):
         if len(recs) >= n:
             break
     return recs
+
+def content_recommend(movie_id: int, n: int):
+    idx = movie_id_map.get(movie_id)
+    if idx is None:
+        return []
+    dists, neighs = content_nn.kneighbors(content_features[idx], n_neighbors=n+1)
+    recs = []
+    for dist, nid in zip(dists[0][1:], neighs[0][1:]):
+        ml_id = list(movie_id_map.keys())[list(movie_id_map.values()).index(nid)]
+        recs.append({"movieId": ml_id, "score": 1 - dist})
+    return recs
+
+def svd_fallback(n:int):
+    # допустим user_id=1 (или средний user), или можно брать весь VALID_IDS
+    preds = [(mid, svd_model.predict(1, mid).est) for mid in VALID_IDS]
+    top = sorted(preds, key=lambda x: -x[1])[:n]
+    return [{"movieId": mid, "score": score} for mid, score in top]
+raw = knn_recommend(movie_id, n)
+if not raw:
+    raw = content_recommend(movie_id, n)
+if not raw:
+    raw = svd_fallback(n)
 
 # ── Auth endpoints ──────────────────────────────────────────────────
 @app.route('/auth/register', methods=['POST'])
@@ -212,11 +237,10 @@ def search_local_movies():
     if not q:
         return jsonify([]), 200
 
-    # фильтруем по title И по наличию в модели
     results = Movie.query \
         .filter(
             Movie.title.ilike(f'%{q}%'),
-            Movie.movie_id.in_(VALID_IDS)
+            Movie.movie_id.in_(VALID_IDS)         # ❗️ только с рейтингами
         ) \
         .order_by(Movie.title) \
         .limit(10) \
