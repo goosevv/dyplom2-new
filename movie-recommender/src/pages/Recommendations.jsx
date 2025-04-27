@@ -1,4 +1,3 @@
-// src/pages/Recommendations.jsx
 import React, { useState, useContext } from 'react';
 import axios from 'axios';
 import {
@@ -6,7 +5,7 @@ import {
   VStack,
   Flex,
   Button,
-  ButtonGroup,
+  ButtonGroup,        // <-- обязательно
   Select,
   Input,
   InputGroup,
@@ -29,25 +28,24 @@ export default function Recommendations() {
   const bg = useColorModeValue('gray.50', 'gray.800');
   const fg = useColorModeValue('gray.800', 'white');
 
-  // 1) Поисковая часть
+  // 1) Поиск
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
 
-  // 2) Выбран фильм и алгоритм
+  // 2) Выбран фильм + алгоритм
   const [selectedMovie, setSelectedMovie] = useState(null);
   const [algorithm, setAlgorithm] = useState('hybrid');
 
-  // 3) Рекомендации + infinite scroll
+  // 3) Рекомендации + Infinite Scroll
   const [recommendations, setRecommendations] = useState([]);
   const [displayed, setDisplayed] = useState([]);
   const PAGE_SIZE = 8;
 
-  // 4) Фильтр по году и сортировка
+  // 4) Фильтр по году
   const [yearFilter, setYearFilter] = useState('');
-  const [sortBy, setSortBy] = useState('score');
 
-  // 5) Модальное окно
+  // 5) Модалка
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [modalMovie, setModalMovie] = useState(null);
 
@@ -55,7 +53,7 @@ export default function Recommendations() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Поиск по названию
+  // Поиск
   const handleSearch = async () => {
     if (!query.trim()) return;
     setError(null);
@@ -66,17 +64,17 @@ export default function Recommendations() {
     setLoading(true);
     try {
       const res = await axios.get('/api/movies/search', {
-        params: { q: query.trim() }
+        params: { q: query.trim() },
       });
       setSearchResults(res.data);
     } catch {
-      setError('Помилка пошуку, спробуйте ще раз.');
+      setError('Помилка пошуку, спробуйте пізніше.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Выбрать фильм из результатов
+  // Выбрать фильм
   const handlePickMovie = movie => {
     setSelectedMovie(movie);
     setRecommendations([]);
@@ -102,13 +100,16 @@ export default function Recommendations() {
     }
   };
 
-  // Подгрузить ещё
+  // Загрузить ещё
   const loadMore = () => {
-    const next = recommendations.slice(displayed.length, displayed.length + PAGE_SIZE);
+    const next = recommendations.slice(
+      displayed.length,
+      displayed.length + PAGE_SIZE
+    );
     setDisplayed(d => [...d, ...next]);
   };
 
-  // Сбросить весь процесс
+  // Сброс всего
   const resetAll = () => {
     setQuery('');
     setSearchResults([]);
@@ -117,48 +118,44 @@ export default function Recommendations() {
     setRecommendations([]);
     setDisplayed([]);
     setYearFilter('');
-    setSortBy('score');
     setError(null);
   };
 
-  // Фильтруем и сортируем отображаемые
-  const filtered = displayed
-    .filter(m => {
-      if (!yearFilter) return true;
-      const year = m.title.match(/\((\d{4})\)/)?.[1];
-      return year === yearFilter;
-    })
-    .sort((a, b) =>
-      sortBy === 'score' ? b.score - a.score : 0
-    );
+  // Фильтр по году
+  const filtered = displayed.filter(m => {
+    if (!yearFilter) return true;
+    const year = m.title.match(/\((\d{4})\)/)?.[1];
+    return year === yearFilter;
+  });
 
   return (
-    <Box bg={bg} minH="100vh" p={6} color={fg}>
+    <Box bg={bg} color={fg} minH="100vh" p={6}>
       {error && (
         <Alert status="error" mb={4}>
           <AlertIcon /> {error}
         </Alert>
       )}
 
-      {/* 1. Поисковая форма (всё вместе) */}
+      {/* 1. Поисковая форма */}
       {!selectedMovie && (
         <VStack spacing={6} mb={8} align="stretch">
           <InputGroup maxW="800px" w="100%" mx="auto">
-            <InputLeftElement
-              pointerEvents="none"
-              children={<SearchIcon color="gray.400" />}
-            />
+            <InputLeftElement pointerEvents="none">
+              <SearchIcon color="gray.400" />
+            </InputLeftElement>
             <Input
               placeholder="Введіть назву фільму"
               size="lg"
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyPress={e => e.key === 'Enter' && handleSearch()}
-              bg={useColorModeValue('white','gray.700')}
+              bg={useColorModeValue('white', 'gray.700')}
               borderRadius="lg"
               _focus={{
-                boxShadow: '0 0 0 2px ' + useColorModeValue('blue.300','blue.600'),
-                borderColor: useColorModeValue('blue.300','blue.600'),
+                boxShadow:
+                  '0 0 0 2px ' +
+                  useColorModeValue('blue.300', 'blue.600'),
+                borderColor: useColorModeValue('blue.300', 'blue.600'),
               }}
             />
           </InputGroup>
@@ -178,7 +175,7 @@ export default function Recommendations() {
 
       {/* 2. Результаты поиска */}
       {!selectedMovie && hasSearched && (
-        <SimpleGrid columns={[1,2,3,4]} spacing={6}>
+        <SimpleGrid columns={[1, 2, 3, 4]} spacing={6}>
           {loading
             ? Array.from({ length: PAGE_SIZE }).map((_, i) => (
                 <Spinner key={i} size="xl" />
@@ -193,7 +190,7 @@ export default function Recommendations() {
         </SimpleGrid>
       )}
 
-      {/* 3. Выбран фильм → выбор алгоритма */}
+      {/* 3. Выбран фильм + алгоритм */}
       {selectedMovie && displayed.length === 0 && !loading && (
         <Box textAlign="center" mb={12}>
           <Button onClick={resetAll} mb={4}>
@@ -204,7 +201,7 @@ export default function Recommendations() {
           </Box>
           <Flex justify="center" mb={4}>
             <ButtonGroup size="md" isAttached variant="outline">
-              {['knn','content','svd','hybrid'].map(alg => (
+              {['knn', 'content', 'svd', 'hybrid'].map(alg => (
                 <Button
                   key={alg}
                   isActive={algorithm === alg}
@@ -226,7 +223,7 @@ export default function Recommendations() {
         </Box>
       )}
 
-      {/* 4. Фильтры & сортировка */}
+      {/* 4. Фильтр по году */}
       {displayed.length > 0 && (
         <Flex wrap="wrap" justify="center" align="center" mb={6} gap={4}>
           <Select
@@ -248,7 +245,7 @@ export default function Recommendations() {
         </Flex>
       )}
 
-      {/* 5. Рекомендации с бесконечным скроллом */}
+      {/* 5. Рекомендации */}
       {displayed.length > 0 && (
         <InfiniteScroll
           dataLength={filtered.length}
@@ -257,7 +254,7 @@ export default function Recommendations() {
           loader={<Spinner my={4} />}
           style={{ overflow: 'visible' }}
         >
-          <SimpleGrid columns={[1,2,3,4]} spacing={6}>
+          <SimpleGrid columns={[1, 2, 3, 4]} spacing={6}>
             {filtered.map(m => (
               <MovieCard
                 key={m.movieId}
@@ -273,7 +270,7 @@ export default function Recommendations() {
         </InfiniteScroll>
       )}
 
-      {/* 6. Модал с деталями */}
+      {/* 6. Модал */}
       <MovieModal
         isOpen={isOpen}
         onClose={onClose}
