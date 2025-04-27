@@ -58,7 +58,8 @@ def knn_recommend(movie_id: int, n: int):
     recs = []
     for nbr_inner_id in nbrs:
         raw_id = trainset.to_raw_iid(nbr_inner_id)
-        score  = knn_model.sim[inner_id].get(nbr_inner_id, 0)
+           # sim — это ndarray, поэтому берём напрямую элемент [inner_id][nbr_inner_id]
+        score  = float(knn_model.sim[inner_id][nbr_inner_id])
         recs.append({"movieId": int(raw_id), "score": float(score)})
     return recs
 
