@@ -12,6 +12,7 @@ from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from surprise import dump
+import joblib
 import scipy
 import scipy.sparse as sp
 # ── Init Flask ─────────────────────────────────────────────────────
@@ -31,21 +32,12 @@ from models.user_list  import List, ListMovie
 
 # ── Load ML models ─────────────────────────────────────────────────
 MODELS_DIR = os.path.join(os.path.dirname(__file__), 'models')
-with open(os.path.join(MODELS_DIR, 'movie_id_to_index.pkl'), 'rb') as f:
-    id_to_idx = pickle.load(f)
-with open(os.path.join(MODELS_DIR, 'index_to_movie_id.pkl'), 'rb') as f:
-    idx_to_id = pickle.load(f)
-with open(os.path.join(MODELS_DIR, 'knn_model.pkl'), 'rb') as f:
-    knn_model = pickle.load(f)
-with open(os.path.join(MODELS_DIR, 'svd_model.pkl'), 'rb') as f:
-    svd_model = pickle.load(f)
-## контентная модель теперь хранит только NearestNeighbors
-with open(os.path.join(MODELS_DIR, "content_nn.pkl"), "rb") as f:
-    content_nn = pickle.load(f)
-# загружаем sparse-матрицу признаков
-content_features = sp.load_npz(
-    os.path.join(MODELS_DIR, "content_features.npz")
-)
+id_to_idx = joblib.load(os.path.join(MODELS_DIR, 'movie_id_to_index.pkl'))
+idx_to_id = joblib.load(os.path.join(MODELS_DIR, 'index_to_movie_id.pkl'))
+knn_model = joblib.load(os.path.join(MODELS_DIR, 'knn_model.pkl'))
+svd_model = joblib.load(os.path.join(MODELS_DIR, 'svd_model.pkl'))
+content_nn = joblib.load(os.path.join(MODELS_DIR, 'content_nn.pkl'))
+content_features = sp.load_npz(os.path.join(MODELS_DIR, 'content_features.npz'))
 
 trainset = knn_model.trainset
 _raw2inner = getattr(trainset, '_raw2inner_id_items', None) or trainset._raw2inner_id_items
