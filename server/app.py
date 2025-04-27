@@ -99,8 +99,11 @@ def svd_recommend(movie_id: int, n: int):
 # ── 1) Гибридный рекоммендер ───────────────────────────────────────────
 
 # веса для комбинирования
-W_KNN     = 0.5
-W_CONTENT = 0.5
+# даём больше веса content-based
+W_KNN     = 0.2
+W_CONTENT = 0.8
+
+
 
 def hybrid_recommend(movie_id: int, n: int) -> list[dict]:
     """
@@ -121,9 +124,9 @@ def hybrid_recommend(movie_id: int, n: int) -> list[dict]:
     # Накопим веса
     scores = {}
     for r in recs_knn:
-        scores[r["movieId"]] = scores.get(r["movieId"], 0) + 0.5 * r["score"]
+        scores[r["movieId"]] = scores.get(r["movieId"], 0) + W_KNN * r["score"]
     for r in recs_content:
-        scores[r["movieId"]] = scores.get(r["movieId"], 0) + 0.5 * r["score"]
+        scores[r["movieId"]] = scores.get(r["movieId"], 0) + W_CONTENT * r["score"]
 
     # Если после объединения нет кандидатов — fallback на популярных
     if not scores:
