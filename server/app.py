@@ -59,8 +59,11 @@ def knn_recommend(movie_id: int, n: int):
     for nbr_inner_id in nbrs:
         raw_id = trainset.to_raw_iid(nbr_inner_id)
            # sim — это ndarray, поэтому берём напрямую элемент [inner_id][nbr_inner_id]
-        score  = float(knn_model.sim[inner_id][nbr_inner_id])
-        recs.append({"movieId": int(raw_id), "score": float(score)})
+        score = float(knn_model.sim[inner_id][nbr_inner_id])
+        # отбрасываем соседей с нулевой или отрицательной похожестью
+        if score <= 0:
+            continue
+        recs.append({"movieId": int(raw_id), "score": score})
     return recs
 
 def svd_recommend(movie_id: int, n: int):
@@ -101,38 +104,49 @@ W_CONTENT = 0.5
 
 def hybrid_recommend(movie_id: int, n: int) -> list[dict]:
     """
-    Смешиваем knn_recommend и content_recommend:
-      score = W_KNN*score_knn + W_CONTENT*score_content
-    Берём top-n по итоговому score.
+    Гибрид: объединяем knn + content, fallback на популярных.
+    Если у фильма мало рейтингов (<5), игнорируем KNN-рекомендации.
     """
-    # получаем два списка recommendations
-    recs_knn     = knn_recommend(movie_id, n*2)       # берём побольше, на всякий
-    recs_content = content_recommend(movie_id, n*2)
+    # Считаем, сколько оценок есть у этого фильма в БД
+    rating_count = Rating.query.filter_by(movie_id=movie_id).count()
 
-    # аккумулируем в dict: movieId → score
+    # Если оценок мало, обнуляем KNN
+    if rating_count < 5:
+        recs_knn = []
+    else:
+        recs_knn = knn_recommend(movie_id, n * 2)
+
+    recs_content = content_recommend(movie_id, n * 2)
+
+    # Накопим веса
     scores = {}
     for r in recs_knn:
-        scores[r["movieId"]] = scores.get(r["movieId"], 0) + W_KNN * r["score"]
+        scores[r["movieId"]] = scores.get(r["movieId"], 0) + 0.5 * r["score"]
     for r in recs_content:
-        scores[r["movieId"]] = scores.get(r["movieId"], 0) + W_CONTENT * r["score"]
+        scores[r["movieId"]] = scores.get(r["movieId"], 0) + 0.5 * r["score"]
 
-    # сортируем и берём первые n
-    top = sorted(
-        scores.items(),
-        key=lambda x: -x[1]
-    )[:n]
+    # Если после объединения нет кандидатов — fallback на популярных
+    if not scores:
+        top = Movie.query.order_by(Movie.popularity.desc()).limit(n).all()
+        return [
+            {"movieId": m.movie_id, "title": m.title, "score": 0.0}
+            for m in top
+        ]
 
-    # формируем выходной формат
+    # Иначе сортируем и возвращаем первые n
+    top = sorted(scores.items(), key=lambda x: -x[1])[:n]
     out = []
-    for movie_id, score in top:
-        m = Movie.query.filter_by(movie_id=movie_id).first()
+    for mid, sc in top:
+        m = Movie.query.filter_by(movie_id=mid).first()
         if m:
             out.append({
-                "movieId": movie_id,
+                "movieId": mid,
                 "title": m.title,
-                "score": round(score, 3)
+                "score": round(sc, 3)
             })
     return out
+
+
 
 def content_recommend(movie_id: int, n: int):
     """
