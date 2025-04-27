@@ -28,6 +28,9 @@ export default function Recommendations() {
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [genreFilter, setGenreFilter] = useState("");
+  const [yearFilter, setYearFilter] = useState("");
+  const [sortBy, setSortBy] = useState("score");
 
   // Шаг 1: поиск по названию
   const handleSearch = async () => {
@@ -103,6 +106,33 @@ export default function Recommendations() {
           </Box>
         </VStack>
       )}
+      <Flex wrap="wrap" mb={4} gap={2}>
+        <Select
+          placeholder="Жанр"
+          value={genreFilter}
+          onChange={(e) => setGenreFilter(e.target.value)}
+          w="150px">
+          <option value="Action">Action</option>
+          <option value="Drama">Drama</option>
+          {/* … остальные жанры … */}
+        </Select>
+        <Select
+          placeholder="Рік"
+          value={yearFilter}
+          onChange={(e) => setYearFilter(e.target.value)}
+          w="120px">
+          {Array.from({ length: 30 }).map((_, i) => {
+            const y = 1995 + i;
+            return (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            );
+          })}
+        </Select>
+        <Button onClick={() => setSortBy("popularity")}>По популярності</Button>
+        <Button onClick={() => setSortBy("score")}>По рейтингу</Button>
+      </Flex>
 
       {/* 2) Сетка результатов поиска */}
       {!selectedMovie && (
@@ -169,6 +199,7 @@ export default function Recommendations() {
               ? Array.from({ length: 8 }).map((_, i) => (
                   <Skeleton key={i} height="350px" borderRadius="md" />
                 ))
+                
               : recommendations.map((m) => (
                   <MovieCard key={m.movieId} movie={m} showRating={true} />
                 ))}
