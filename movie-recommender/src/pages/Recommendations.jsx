@@ -1,7 +1,7 @@
 // src/pages/Recommendations.jsx
-import React, { useState, useContext } from 'react'
-import axios from 'axios'
-import MovieCard from '../components/MovieCard'
+import React, { useState, useContext } from "react";
+import axios from "axios";
+import MovieCard from "../components/MovieCard";
 import {
   Box,
   Button,
@@ -12,76 +12,78 @@ import {
   AlertIcon,
   Heading,
   Text,
-  useColorModeValue
-} from '@chakra-ui/react'
-import { LocaleContext } from '../LocaleContext'
-import { TMDB_KEY, TMDB_API_BASE } from '../config'
+  useColorModeValue,
+} from "@chakra-ui/react";
+import { LocaleContext } from "../LocaleContext";
+import { TMDB_KEY, TMDB_API_BASE } from "../config";
 
 export default function Recommendations() {
-  const { tmdbLang } = useContext(LocaleContext)
+  const { tmdbLang } = useContext(LocaleContext);
 
-  const [query, setQuery]               = useState('')
-  const [searchResults, setSearchResults]     = useState([])
-  const [recommendations, setRecommendations] = useState([])
-  const [selectedMovie, setSelectedMovie]     = useState(null)
-  const [error, setError]               = useState(null)
+  const [query, setQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
+  const [selectedMovie, setSelectedMovie] = useState(null);
+  const [error, setError] = useState(null);
 
-  const bg = useColorModeValue('gray.50','gray.800')
+  const bg = useColorModeValue("gray.50", "gray.800");
 
   // 1) Поиск по TMDb
   const handleSearch = async () => {
-    if (!query.trim()) return
-    setError(null)
-    setSelectedMovie(null)
-    setRecommendations([])
+    if (!query.trim()) return;
+    setError(null);
+    setSelectedMovie(null);
+    setRecommendations([]);
     try {
-      if (!query.trim()) return
+      if (!query.trim()) return;
       const { data } = await axios.get(`/api/movies/search`, {
-      params: { q: query.trim() }
-      })
+        params: { q: query.trim() },
+      });
       setSearchResults(
-        data.results.map(item => ({
+        data.results.map((item) => ({
           movieId: item.id,
-          title: `${item.title}${item.release_date?` (${item.release_date.slice(0,4)})`:''}`
+          title: `${item.title}${
+            item.release_date ? ` (${item.release_date.slice(0, 4)})` : ""
+          }`,
         }))
-      )
+      );
     } catch {
-      setError('Помилка пошуку. Спробуйте інший запит.')
+      setError("Помилка пошуку. Спробуйте інший запит.");
     }
-  }
+  };
 
   // 2) Загрузка рекомендаций
-  const handleSelect = async movie => {
-    setError(null)
-    setSelectedMovie(movie)
+  const handleSelect = async (movie) => {
+    setError(null);
+    setSelectedMovie(movie);
     try {
       const { data } = await axios.get(
-        `/api/recommendations/${movie.movieId}`,
+        `/api/recommend/movie/${movie.movieId}`,
         { params: { n: 10 } }
-      )
+      );
 
       // Надёжно достаём массив из любого ответа:
-      let recs = []
+      let recs = [];
       if (Array.isArray(data)) {
-        recs = data
-      } else if (data && typeof data === 'object') {
-        if (Array.isArray(data.recommendations)) recs = data.recommendations
-        else if (Array.isArray(data.results))      recs = data.results
+        recs = data;
+      } else if (data && typeof data === "object") {
+        if (Array.isArray(data.recommendations)) recs = data.recommendations;
+        else if (Array.isArray(data.results)) recs = data.results;
       }
-      setRecommendations(recs)
+      setRecommendations(recs);
     } catch {
-      setError('Не вдалося завантажити рекомендації.')
+      setError("Не вдалося завантажити рекомендації.");
     }
-  }
+  };
 
   // 3) Сброс в режим поиска
   const reset = () => {
-    setError(null)
-    setSelectedMovie(null)
-    setRecommendations([])
-    setSearchResults([])
-    setQuery('')
-  }
+    setError(null);
+    setSelectedMovie(null);
+    setRecommendations([]);
+    setSearchResults([]);
+    setQuery("");
+  };
 
   return (
     <Box bg={bg} minH="100vh" p={4}>
@@ -98,7 +100,7 @@ export default function Recommendations() {
             <Input
               placeholder="Введіть назву фільму"
               value={query}
-              onChange={e => setQuery(e.target.value)}
+              onChange={(e) => setQuery(e.target.value)}
               mr={2}
             />
             <Button colorScheme="blue" onClick={handleSearch}>
@@ -134,25 +136,24 @@ export default function Recommendations() {
       )}
 
       {/* Сетка карточек */}
-      <SimpleGrid columns={{ base:1, sm:2, md:3, lg:4 }} spacing={6}>
+      <SimpleGrid columns={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing={6}>
         {selectedMovie
-          ? recommendations.map(m => (
+          ? recommendations.map((m) => (
               <Box key={m.movieId}>
                 <MovieCard movie={m} />
                 <Text textAlign="center" mt={2} fontSize="sm" color="gray.500">
-                  Рейтинг: {m.score?.toFixed(2) ?? '–'}
+                  Рейтинг: {m.score?.toFixed(2) ?? "–"}
                 </Text>
               </Box>
             ))
-          : searchResults.map(m => (
+          : searchResults.map((m) => (
               <MovieCard
                 key={m.movieId}
                 movie={m}
                 onClickCard={() => handleSelect(m)}
               />
-            ))
-        }
+            ))}
       </SimpleGrid>
     </Box>
-  )
+  );
 }
