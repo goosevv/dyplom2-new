@@ -2,7 +2,7 @@
 
 import os
 import pickle
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, abort
 from extensions import db, jwt
 from flask_jwt_extended import (
     JWTManager, create_access_token,
@@ -339,6 +339,31 @@ def search_local_movies():
         .all()
 
     return jsonify([{'movieId': m.movie_id, 'title': m.title} for m in results]), 200
+
+# ── Update & Delete endpoints for ratings ────────────────────────────
+@app.route('/api/ratings/<int:movie_id>', methods=['PUT', 'DELETE'])
+@jwt_required()
+def modify_rating(movie_id):
+    user_id = get_jwt_identity()
+    # знаходимо існуючий рейтинг цього користувача на вказаний фільм
+    rating = Rating.query.filter_by(user_id=user_id, movie_id=movie_id).first()
+    if not rating:
+        # якщо нема – повертаємо 404
+        abort(404, description="Rating not found")
+
+    if request.method == 'PUT':
+        data = request.get_json() or {}
+        # перевірка вхідних даних
+        if 'score' not in data:
+            abort(400, description="Missing 'score' in request")
+        rating.score = float(data['score'])
+        db.session.commit()
+        return jsonify({'message': 'Rating updated', 'movieId': movie_id, 'score': rating.score}), 200
+
+    else:  # DELETE
+        db.session.delete(rating)
+        db.session.commit()
+        return jsonify({'message': 'Rating deleted', 'movieId': movie_id}), 200
 
 # ── Run ─────────────────────────────────────────────────────────────
 if __name__ == '__main__':

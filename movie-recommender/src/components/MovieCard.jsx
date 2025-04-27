@@ -1,3 +1,4 @@
+// src/components/MovieCard.jsx
 import React, { useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import {
@@ -14,70 +15,97 @@ import {
 } from '@chakra-ui/react';
 import { FaHeart, FaRegHeart } from 'react-icons/fa';
 import ReactStars from 'react-rating-stars-component';
-import { TMDB_KEY, TMDB_API_BASE, TMDB_IMG_BASE, authHeaders } from '../config';
+import {
+  TMDB_KEY,
+  TMDB_API_BASE,
+  TMDB_IMG_BASE,
+  authHeaders
+} from '../config';
 import { LocaleContext } from '../LocaleContext';
 
 export default function MovieCard({ movie, onClickCard, showRating }) {
-  // 1) Локаль
+  // 1) контекст локали
   const { tmdbLang } = useContext(LocaleContext);
-  // 2) Авторизация
-  const token = localStorage.getItem('access_token');
+
+  // 2) авторизация
+  const token = localStorage.getItem('token');
   const loggedIn = Boolean(token);
-  // 3) Стили
-  const bg = useColorModeValue('white', 'gray.700');
+
+  // 3) стили
+  const bg        = useColorModeValue('white', 'gray.700');
   const overlayBg = useColorModeValue('rgba(255,255,255,0.9)', 'rgba(0,0,0,0.8)');
-  const footerBg = useColorModeValue('whiteAlpha.900', 'blackAlpha.900');
+  const footerBg  = useColorModeValue('whiteAlpha.900', 'blackAlpha.900');
   const textColor = useColorModeValue('gray.800', 'white');
 
-  // 4) Состояния
-  const [details, setDetails] = useState(null);
-  const [liked, setLiked] = useState(false);
-  const [userRating, setUserRating] = useState(movie.scoreByUser ?? 0);
+  // 4) состояния
+  const [details, setDetails]     = useState(null);
+  const [liked, setLiked]         = useState(false);
+  const [userRating, setUserRating] = useState(0);
 
-  // 5) Загружаем подробности из TMDB
+  // 5) загрузить детали фильма из TMDb
   useEffect(() => {
     let mounted = true;
-    const params = {
-      api_key: TMDB_KEY,
-      language: tmdbLang,
-      query: movie.title.replace(/\s*\(\d{4}\)$/, '')
-    };
+    const params = { api_key: TMDB_KEY, language: tmdbLang, query: movie.title.replace(/\s*\(\d{4}\)$/, '') };
     const yearMatch = movie.title.match(/\((\d{4})\)$/);
     if (yearMatch) params.year = yearMatch[1];
 
-    axios
-      .get(`${TMDB_API_BASE}/search/movie`, { params })
-      .then(r => {
-        if (mounted) setDetails(r.data.results?.[0] || {});
-      })
-      .catch(() => {
-        if (mounted) setDetails({});
-      });
+    axios.get(`${TMDB_API_BASE}/search/movie`, { params })
+      .then(res => { if (mounted) setDetails(res.data.results?.[0] || {}); })
+      .catch(() => { if (mounted) setDetails({}); });
 
     return () => { mounted = false; };
   }, [movie.title, tmdbLang]);
 
-  // 6) Переключение лайка
-  const toggleLike = async e => {
-    e.stopPropagation();
-    try {
-      if (liked) {
-        await axios.delete('/api/recommend/user/favorites', {
-          ...authHeaders(),
-          data: { movieId: movie.movieId }
-        });
-      } else {
-        await axios.post('/api/recommend/user/favorites',
-          { movieId: movie.movieId },
-          authHeaders()
-        );
-      }
-      setLiked(!liked);
-    } catch {}
+  // 6) загрузить из БД:  a) есть ли в избранном, b) текущий рейтинг пользователя
+  useEffect(() => {
+    if (!loggedIn) return;
+
+    // рейтинг
+    axios.get(`/api/ratings/${localStorage.getItem('user_id')}`, authHeaders())
+      .then(res => {
+        const rec = res.data.find(r => r.movieId === movie.movieId);
+        setUserRating(rec ? rec.score : 0);
+      })
+      .catch(() => { /* игнор */ });
+
+    // избранное
+    axios.get('/api/recommend/user/favorites', authHeaders())
+      .then(res => {
+        setLiked(res.data.some(m => m.movieId === movie.movieId));
+      })
+      .catch(() => { /* игнор */ });
+  }, [loggedIn, movie.movieId]);
+
+  // 7) обработчики
+  const handleRatingChange = newRating => {
+    setUserRating(newRating);
+    axios.post(
+      '/api/ratings',
+      { movieId: movie.movieId, score: newRating },
+      authHeaders()
+    );
   };
 
-  // 7) Рендерим спиннер, пока нет details
-  if (!details) {
+  const toggleLike = e => {
+    e.stopPropagation();
+    if (!loggedIn) return;
+
+    if (liked) {
+      axios.delete(
+        '/api/recommend/user/favorites',
+        { ...authHeaders(), data: { movieId: movie.movieId } }
+      ).then(() => setLiked(false));
+    } else {
+      axios.post(
+        '/api/recommend/user/favorites',
+        { movieId: movie.movieId },
+        authHeaders()
+      ).then(() => setLiked(true));
+    }
+  };
+
+  // 8) пока details не загружены
+  if (!details || !details.title) {
     return (
       <Box maxW="sm" w="100%" bg={bg} textAlign="center" py={6}>
         <Spinner size="lg" />
@@ -85,7 +113,7 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
     );
   }
 
-  // 8) Подготовим поля
+  // 9) данные для UI
   const poster = details.poster_path
     ? `${TMDB_IMG_BASE}${details.poster_path}`
     : '/placeholder.png';
@@ -143,32 +171,18 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
           </Text>
 
           {showRating && (
-            <Text fontSize="sm" fontWeight="bold" mr={2}>
-              {movie.score?.toFixed(2)}
-            </Text>
-          )}
-
-          {loggedIn ? (
-            <ReactStars
-              count={5}
-              size={20}
-              value={userRating}
-              activeColor="#ffd700"
-              onChange={newRating => {
-                setUserRating(newRating);
-                axios.post(
-                  '/api/ratings',
-                  { movieId: movie.movieId, score: newRating },
-                  authHeaders()
-                );
-              }}
-            />
-          ) : (
-            <Tooltip label="Увійдіть, щоб оцінити">
-              <Box>
-                <FaRegHeart color="gray" />
-              </Box>
-            </Tooltip>
+            loggedIn ? (
+              <ReactStars
+                count={5}
+                size={20}
+                value={userRating}
+                onChange={handleRatingChange}
+              />
+            ) : (
+              <Tooltip label="Увійдіть, щоб оцінити">
+                <Box><FaRegHeart /></Box>
+              </Tooltip>
+            )
           )}
 
           <IconButton

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Box,
   VStack,
@@ -8,32 +8,34 @@ import {
   Button,
   Alert,
   AlertIcon,
-  useColorModeValue
-} from '@chakra-ui/react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+  useColorModeValue,
+} from "@chakra-ui/react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 export default function Login() {
   const navigate = useNavigate();
-  const bg = useColorModeValue('white', 'gray.700');
+  const bg = useColorModeValue("white", "gray.700");
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
-  const handleSubmit = async e => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
     try {
-      const res = await axios.post('/auth/login', { email, password });
-      localStorage.setItem('access_token', res.data.access_token);
-      navigate('/recommendations');
+      const res = await axios.post("/auth/login", { email, password });
+      // сохраняем токен, user_id и сам объект user
+      localStorage.setItem("token", res.data.access_token);
+      localStorage.setItem("user_id", res.data.user.id);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+      navigate("/recommendations");
     } catch (err) {
       setError(
-        err.response?.data?.message ||
-        'Помилка входу — перевірте логін/пароль.'
+        err.response?.data?.message || "Помилка входу — перевірте логін/пароль."
       );
     } finally {
       setLoading(false);
@@ -48,8 +50,7 @@ export default function Login() {
       p={6}
       bg={bg}
       borderRadius="md"
-      boxShadow="lg"
-    >
+      boxShadow="lg">
       {error && (
         <Alert status="error" mb={4}>
           <AlertIcon /> {error}
@@ -63,7 +64,7 @@ export default function Login() {
             <Input
               type="email"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </FormControl>
 
@@ -72,16 +73,11 @@ export default function Login() {
             <Input
               type="password"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
             />
           </FormControl>
 
-          <Button
-            type="submit"
-            colorScheme="blue"
-            w="100%"      
-            isLoading={loading}
-          >
+          <Button type="submit" colorScheme="blue" w="100%" isLoading={loading}>
             Вхід
           </Button>
         </VStack>
