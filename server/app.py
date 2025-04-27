@@ -110,11 +110,6 @@ def svd_fallback(n:int):
     preds = [(mid, svd_model.predict(1, mid).est) for mid in VALID_IDS]
     top = sorted(preds, key=lambda x: -x[1])[:n]
     return [{"movieId": mid, "score": score} for mid, score in top]
-raw = knn_recommend(movie_id, n)
-if not raw:
-    raw = content_recommend(movie_id, n)
-if not raw:
-    raw = svd_fallback(n)
 
 # ── Auth endpoints ──────────────────────────────────────────────────
 @app.route('/auth/register', methods=['POST'])
