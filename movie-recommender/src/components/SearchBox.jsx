@@ -1,4 +1,3 @@
-// src/components/SearchBox.jsx
 import React from 'react';
 import { useCombobox } from 'downshift';
 import { Box, Input, List, ListItem, useColorModeValue } from '@chakra-ui/react';
@@ -30,11 +29,15 @@ export default function SearchBox({ items, onSelect, placeholder }) {
         borderColor={useColorModeValue('gray.200','gray.600')}
         maxH="240px"
         overflowY="auto"
+        mt={1}
         {...getMenuProps()}
       >
         {isOpen &&
           items
-            .filter(i => inputValue === '' || i.title.toLowerCase().includes(inputValue.toLowerCase()))
+            .filter(i =>
+              inputValue === '' ||
+              i.title.toLowerCase().includes(inputValue.toLowerCase())
+            )
             .slice(0, 10)
             .map((item, index) => (
               <ListItem
@@ -51,3 +54,4 @@ export default function SearchBox({ items, onSelect, placeholder }) {
     </Box>
   );
 }
+
