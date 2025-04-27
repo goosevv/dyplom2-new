@@ -26,17 +26,34 @@ import { LocaleContext } from '../LocaleContext';
 
 export default function Recommendations() {
   const { tmdbLang } = useContext(LocaleContext);
+  const bg = useColorModeValue('gray.50','gray.800');
 
-  const [query, setQuery] = useState("");
+  // Поиск
+  const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+
+  // Выбор фильма и алгоритма
   const [selectedMovie, setSelectedMovie] = useState(null);
-  const [algorithm, setAlgorithm] = useState("knn");
+  const [algorithm, setAlgorithm] = useState('hybrid');
+
+  // Все рекомендации (полный массив)
   const [recommendations, setRecommendations] = useState([]);
+
+  // **Тут добавляем состояние displayed для Infinite Scroll**
+  const [displayed, setDisplayed] = useState([]);
+  const PAGE_SIZE = 8;
+
+  // Фильтры/сортировка
+  const [yearFilter, setYearFilter] = useState('');
+  const [sortBy, setSortBy] = useState('score');
+
+  // Модалка
+  const [modalMovie, setModalMovie] = useState(null);
+  const { isOpen, onOpen, onClose } = useDisclosure();
+
+  // Статусы
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [genreFilter, setGenreFilter] = useState("");
-  const [yearFilter, setYearFilter] = useState("");
-  const [sortBy, setSortBy] = useState("score");
 
   // Шаг 1: поиск по названию
   const handleSearch = async () => {
