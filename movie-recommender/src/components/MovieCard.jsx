@@ -1,3 +1,4 @@
+// src/components/MovieCard.jsx
 import React, { useState, useEffect, useContext } from 'react'
 import axios from 'axios'
 import {
@@ -20,7 +21,7 @@ import {
   authHeaders
 } from '../config'
 
-// Кэш жанров по языкам
+// Кэш жанров
 const genreCache = {}
 async function loadGenres(lang) {
   if (genreCache[lang]) return genreCache[lang]
@@ -42,15 +43,19 @@ export default function MovieCard({ movie, onClickCard }) {
   // ── 1) Хуки ────────────────────────────────
   const { tmdbLang } = useContext(LocaleContext)
   const [details, setDetails] = useState(null)
-  const [liked, setLiked]     = useState(false)
-  const bg         = useColorModeValue('white', 'gray.700')
-  const overlayBg  = useColorModeValue('rgba(255,255,255,0.8)', 'rgba(0,0,0,0.8)')
+  const [liked, setLiked]   = useState(false)
 
-  // ── 2) Подгружаем детали и жанры ────────────
+  // Все useColorModeValue ВЫЗЫВАЕМ до любого return
+  const bg                  = useColorModeValue('white', 'gray.700')
+  const overlayBg           = useColorModeValue('rgba(255,255,255,0.8)', 'rgba(0,0,0,0.8)')
+  const descriptionTextColor = useColorModeValue('gray.800', 'white')
+  const footerBgColor       = useColorModeValue('whiteAlpha.900', 'blackAlpha.900')
+
+  // ── 2) Подгружаем детали и лайки ────────────
   useEffect(() => {
     let mounted = true
 
-    loadGenres(tmdbLang).then()
+    loadGenres(tmdbLang)
 
     const favs = JSON.parse(localStorage.getItem('favorites') || '[]')
     setLiked(favs.includes(movie.movieId))
@@ -68,7 +73,7 @@ export default function MovieCard({ movie, onClickCard }) {
     return () => { mounted = false }
   }, [movie.movieId, tmdbLang])
 
-  // ── 3) Спиннер, пока нет details ────────────
+  // ── 3) Спиннер, пока details=null ───────────
   if (details === null) {
     return (
       <Box maxW="sm" w="100%" textAlign="center" py={6} bg={bg}>
@@ -77,14 +82,13 @@ export default function MovieCard({ movie, onClickCard }) {
     )
   }
 
-  // ── 4) Подготовка полей ─────────────────────
+  // ── 4) Подготовка данных ─────────────────────
   const poster = details.poster_path
     ? `${TMDB_IMG_BASE}${details.poster_path}`
     : '/placeholder.png'
-
-  const year     = (details.release_date || '').slice(0, 4)
-  const ids      = details.genre_ids || details.genres?.map(g => g.id) || []
-  const genres   = ids
+  const year   = (details.release_date || '').slice(0,4)
+  const ids    = details.genre_ids || details.genres?.map(g => g.id) || []
+  const genres = ids
     .map(id => genreCache[tmdbLang]?.[id])
     .filter(Boolean)
     .join(', ')
@@ -97,10 +101,7 @@ export default function MovieCard({ movie, onClickCard }) {
       if (liked) {
         await axios.delete(
           `/recommend/user/favorites`,
-          {
-            ...authHeaders(),
-            data: { movieId: movie.movieId }
-          }
+          { ...authHeaders(), data: { movieId: movie.movieId } }
         )
       } else {
         await axios.post(
@@ -118,7 +119,7 @@ export default function MovieCard({ movie, onClickCard }) {
     } catch {}
   }
 
-  // ── 6) Рендер с оверлеем и hover ────────────
+  // ── 6) Основной рендер ───────────────────────
   return (
     <Box
       pos="relative"
@@ -133,18 +134,17 @@ export default function MovieCard({ movie, onClickCard }) {
       transition="transform .2s"
       _hover={{ transform: 'scale(1.05)' }}
     >
-      <AspectRatio ratio={2 / 3}>
+      <AspectRatio ratio={2/3}>
         <Image src={poster} alt={details.title} objectFit="cover" />
       </AspectRatio>
 
-      {/* Название всегда видно */}
       <Box p={2} bg={bg}>
         <Heading as="h5" size="md" isTruncated>
           {details.title}
         </Heading>
       </Box>
 
-      {/* Оверлей при наведении */}
+      {/* Оверлей */}
       <Box
         pos="absolute"
         inset="0"
@@ -156,22 +156,15 @@ export default function MovieCard({ movie, onClickCard }) {
         flexDir="column"
         justify="space-between"
       >
-        {/* Описание */}
         <Box p={4} overflowY="auto">
-          <Text fontSize="sm" color={useColorModeValue('gray.800','white')}>
+          <Text fontSize="sm" color={descriptionTextColor}>
             {overview}
           </Text>
         </Box>
 
-        {/* Жанры, год и ♥ */}
-        <Flex
-          p={3}
-          bg={useColorModeValue('whiteAlpha.900','blackAlpha.900')}
-          align="center"
-          justify="space-between"
-        >
+        <Flex p={3} bg={footerBgColor} align="center" justify="space-between">
           <Text fontSize="xs" color="gray.600">
-            {year} {genres && `• ${genres}`}
+            {year}{genres && ` • ${genres}`}
           </Text>
           <IconButton
             aria-label="Нравится"
