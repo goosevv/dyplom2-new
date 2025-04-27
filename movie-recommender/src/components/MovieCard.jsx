@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Box,
@@ -8,9 +8,9 @@ import {
   Text,
   IconButton,
   Spinner,
-  useColorModeValue,
   Flex,
   Tooltip,
+  useColorModeValue,
 } from '@chakra-ui/react';
 import { FaHeart, FaRegHeart } from 'react-icons/fa';
 import ReactStars from 'react-rating-stars-component';
@@ -18,57 +18,56 @@ import { TMDB_KEY, TMDB_API_BASE, TMDB_IMG_BASE, authHeaders } from '../config';
 import { LocaleContext } from '../LocaleContext';
 
 export default function MovieCard({ movie, onClickCard, showRating }) {
-  // 1) Контекст локали
+  // 1) Локаль
   const { tmdbLang } = useContext(LocaleContext);
-
-  // 2) Получаем из localStorage токен
+  // 2) Авторизация
   const token = localStorage.getItem('access_token');
   const loggedIn = Boolean(token);
-
-  // 3) Цвета и стили
+  // 3) Стили
   const bg = useColorModeValue('white', 'gray.700');
   const overlayBg = useColorModeValue('rgba(255,255,255,0.9)', 'rgba(0,0,0,0.8)');
   const footerBg = useColorModeValue('whiteAlpha.900', 'blackAlpha.900');
   const textColor = useColorModeValue('gray.800', 'white');
 
-  // 4) Локальные стейты
+  // 4) Состояния
   const [details, setDetails] = useState(null);
   const [liked, setLiked] = useState(false);
   const [userRating, setUserRating] = useState(movie.scoreByUser ?? 0);
 
-  // 5) Эффект для загрузки данных
+  // 5) Загружаем подробности из TMDB
   useEffect(() => {
     let mounted = true;
     const params = {
       api_key: TMDB_KEY,
-      query: movie.title.replace(/\s*\(\d{4}\)$/, ''),
       language: tmdbLang,
+      query: movie.title.replace(/\s*\(\d{4}\)$/, '')
     };
     const yearMatch = movie.title.match(/\((\d{4})\)$/);
     if (yearMatch) params.year = yearMatch[1];
 
     axios
       .get(`${TMDB_API_BASE}/search/movie`, { params })
-      .then(r => mounted && setDetails(r.data.results?.[0] || {}))
-      .catch(() => mounted && setDetails({}));
+      .then(r => {
+        if (mounted) setDetails(r.data.results?.[0] || {});
+      })
+      .catch(() => {
+        if (mounted) setDetails({});
+      });
 
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [movie.title, tmdbLang]);
 
-  // 6) Лайк
+  // 6) Переключение лайка
   const toggleLike = async e => {
     e.stopPropagation();
     try {
       if (liked) {
         await axios.delete('/api/recommend/user/favorites', {
           ...authHeaders(),
-          data: { movieId: movie.movieId },
+          data: { movieId: movie.movieId }
         });
       } else {
-        await axios.post(
-          '/api/recommend/user/favorites',
+        await axios.post('/api/recommend/user/favorites',
           { movieId: movie.movieId },
           authHeaders()
         );
@@ -77,7 +76,7 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
     } catch {}
   };
 
-  // 7) Пока нет details — спиннер
+  // 7) Рендерим спиннер, пока нет details
   if (!details) {
     return (
       <Box maxW="sm" w="100%" bg={bg} textAlign="center" py={6}>
@@ -86,11 +85,11 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
     );
   }
 
-  // 8) Готовим данные для рендера
+  // 8) Подготовим поля
   const poster = details.poster_path
     ? `${TMDB_IMG_BASE}${details.poster_path}`
     : '/placeholder.png';
-  const year = (details.release_date || '').slice(0, 4);
+  const year = details.release_date?.slice(0, 4) || '';
   const genres = (details.genres || []).map(g => g.name).join(', ');
   const overview = details.overview || 'Опис відсутній';
 
@@ -105,8 +104,8 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
       overflow="hidden"
       cursor="pointer"
       onClick={onClickCard}
-      _hover={{ transform: 'scale(1.02)', boxShadow: 'lg' }}
       transition="transform .2s, box-shadow .2s"
+      _hover={{ transform: 'scale(1.02)', boxShadow: 'lg' }}
     >
       <AspectRatio ratio={2 / 3}>
         <Image src={poster} alt={details.title} objectFit="cover" />
@@ -122,7 +121,7 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
         pos="absolute"
         inset="0"
         bg={overlayBg}
-        opacity="0"
+        opacity={0}
         _hover={{ opacity: 1 }}
         transition="opacity .3s"
         display="flex"
@@ -140,8 +139,7 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
           borderColor={useColorModeValue('gray.200', 'gray.600')}
         >
           <Text fontSize="xs" color="gray.500" isTruncated maxW="40%">
-            {year}
-            {genres && ` • ${genres}`}
+            {year}{genres && ` • ${genres}`}
           </Text>
 
           {showRating && (
