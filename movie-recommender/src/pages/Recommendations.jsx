@@ -39,12 +39,11 @@ export default function Recommendations() {
       const { data } = await axios.get(`/api/movies/search`, {
         params: { q: query.trim() },
       });
+      // data — це масив { movieId, title }
       setSearchResults(
-        data.results.map((item) => ({
-          movieId: item.id,
-          title: `${item.title}${
-            item.release_date ? ` (${item.release_date.slice(0, 4)})` : ""
-          }`,
+        data.map((item) => ({
+          movieId: item.movieId,
+          title: item.title,
         }))
       );
     } catch {
