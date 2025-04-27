@@ -23,6 +23,13 @@ app.config.from_object(Config)
 db.init_app(app)
 jwt.init_app(app)
 CORS(app)
+# ── Создаём все таблицы сразу после инициализации Flask ──
+with app.app_context():
+    from models.user       import User
+    from models.movie      import Movie
+    from models.rating     import Rating
+    from models.user_list  import List, ListMovie
+    db.create_all()
 
 # ── SQLAlchemy Models ─────────────────────────────────────────────
 from models.user       import User
@@ -184,29 +191,38 @@ def svd_fallback(n:int):
 # ── Auth endpoints ──────────────────────────────────────────────────
 @app.route('/auth/register', methods=['POST'])
 def register():
-    data = request.get_json()
-    if User.query.filter_by(email=data['email']).first():
-        return jsonify({"message":"Email вже зайнятий"}), 400
+    data = request.get_json() or {}
+    if User.query.filter_by(email=data.get('email')).first():
+        return jsonify({"message": "Email вже зайнятий"}), 400
+
+    # Хэшируем пароль и сохраняем в поле `password`
+    hashed = generate_password_hash(data.get('password', ''))
     user = User(
-        name=data['name'],
-        email=data['email'],
-        password_hash=generate_password_hash(data['password'])
+        name=data.get('name', ''),
+        email=data.get('email', ''),
+        password=hashed          # <-- здесь именно `password`
     )
+
     db.session.add(user)
     db.session.commit()
-    return jsonify({"message":"Реєстрація успішна"}), 201
+    return jsonify({"message": "Реєстрація успішна"}), 201
+
 
 @app.route('/auth/login', methods=['POST'])
 def login():
-    data = request.get_json()
-    user = User.query.filter_by(email=data['email']).first()
-    if not user or not check_password_hash(user.password_hash, data['password']):
-        return jsonify({"message":"Невірний логін або пароль"}), 401
+    data = request.get_json() or {}
+    user = User.query.filter_by(email=data.get('email')).first()
+
+    # проверяем именно поле `password`
+    if not user or not check_password_hash(user.password, data.get('password','')):
+        return jsonify({"message": "Невірний логін або пароль"}), 401
+
     token = create_access_token(identity=user.id)
     return jsonify({
         'access_token': token,
         'user': {'id': user.id, 'name': user.name, 'email': user.email}
     }), 200
+
 
 
 # ── Ratings endpoints ────────────────────────────────────────────────
