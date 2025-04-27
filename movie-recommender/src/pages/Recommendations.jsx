@@ -19,7 +19,8 @@ import { TMDB_KEY, TMDB_API_BASE } from "../config";
 
 export default function Recommendations() {
   const { tmdbLang } = useContext(LocaleContext);
-
+  const [algorithm, setAlgorithm] = useState("hybrid");
+  const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
@@ -34,6 +35,7 @@ export default function Recommendations() {
     setError(null);
     setSelectedMovie(null);
     setRecommendations([]);
+    setLoading(true);
     try {
       if (!query.trim()) return;
       const { data } = await axios.get(`/api/movies/search`, {
@@ -48,6 +50,8 @@ export default function Recommendations() {
       );
     } catch {
       setError("Помилка пошуку. Спробуйте інший запит.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -55,6 +59,7 @@ export default function Recommendations() {
   const handleSelect = async (movie) => {
     setError(null);
     setSelectedMovie(movie);
+    setLoading(true);
     try {
       const { data } = await axios.get(
         `/api/recommend/movie/${movie.movieId}`,
@@ -72,6 +77,8 @@ export default function Recommendations() {
       setRecommendations(recs);
     } catch {
       setError("Не вдалося завантажити рекомендації.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -86,6 +93,19 @@ export default function Recommendations() {
 
   return (
     <Box bg={bg} minH="100vh" p={4}>
+      {/* Алгоритм */}
+      <Flex justify="flex-end" mb={4}>
+        <ButtonGroup size="sm" isAttached variant="outline">
+          {["knn", "content", "svd", "hybrid"].map((alg) => (
+            <Button
+              key={alg}
+              isActive={algorithm === alg}
+              onClick={() => setAlgorithm(alg)}>
+              {alg.toUpperCase()}
+            </Button>
+          ))}
+        </ButtonGroup>
+      </Flex>
       {error && (
         <Alert status="error" mb={4}>
           <AlertIcon /> {error}
@@ -100,6 +120,7 @@ export default function Recommendations() {
               placeholder="Введіть назву фільму"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
               mr={2}
             />
             <Button colorScheme="blue" onClick={handleSearch}>
@@ -134,25 +155,25 @@ export default function Recommendations() {
         <Text>Немає рекомендацій за цим фільмом.</Text>
       )}
 
-      {/* Сетка карточек */}
-      <SimpleGrid columns={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing={6}>
-        {selectedMovie
-          ? recommendations.map((m) => (
-              <Box key={m.movieId}>
-                <MovieCard movie={m} />
-                <Text textAlign="center" mt={2} fontSize="sm" color="gray.500">
-                  Рейтинг: {m.score?.toFixed(2) ?? "–"}
-                </Text>
-              </Box>
-            ))
-          : searchResults.map((m) => (
-              <MovieCard
-                key={m.movieId}
-                movie={m}
-                onClickCard={() => handleSelect(m)}
-              />
-            ))}
-      </SimpleGrid>
+      {/* Сетка карточек или Skeleton */}
+      {loading ? (
+        <SimpleGrid columns={[1, 2, 3, 4]} spacing={6}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} height="350px" borderRadius="md" />
+          ))}
+        </SimpleGrid>
+      ) : (
+        <SimpleGrid columns={[1, 2, 3, 4]} spacing={6}>
+          {(selectedMovie ? recommendations : searchResults).map((m) => (
+            <MovieCard
+              key={m.movieId}
+              movie={m}
+              onClickCard={selectedMovie ? undefined : () => handleSelect(m)}
+              showRating={!!selectedMovie}
+            />
+          ))}
+        </SimpleGrid>
+      )}
     </Box>
   );
 }
