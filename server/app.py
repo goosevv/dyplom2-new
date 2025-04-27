@@ -3,7 +3,7 @@
 import os
 import pickle
 from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
+from extensions import db, jwt
 from flask_jwt_extended import (
     JWTManager, create_access_token,
     jwt_required, get_jwt_identity
@@ -17,8 +17,8 @@ app = Flask(__name__)
 from config import Config
 app.config.from_object(Config)
 
-db  = SQLAlchemy(app)
-jwt = JWTManager(app)
+db.init_app(app)
+jwt.init_app(app)
 CORS(app)
 
 # ── SQLAlchemy Models ─────────────────────────────────────────────
@@ -207,17 +207,15 @@ def recommend_by_movie(movie_id):
 
 @app.route('/api/movies/search')
 def search_local_movies():
-    """Возвращает до 10 фильмов из локальной БД по части названия."""
     q = request.args.get('q','').strip()
     if not q:
         return jsonify([]), 200
-    # ilike для нечувствительного поиска
-    results = Movie.query.filter(Movie.title.ilike(f'%{q}%')) \
-                         .order_by(Movie.title).limit(10).all()
-    return jsonify([
-        {'movieId': m.movie_id, 'title': m.title}
-        for m in results
-    ]), 200
+    results = Movie.query \
+        .filter(Movie.title.ilike(f'%{q}%')) \
+        .order_by(Movie.title) \
+        .limit(10) \
+        .all()
+    return jsonify([{'movieId': m.movie_id, 'title': m.title} for m in results]), 200
 
 # ── Run ─────────────────────────────────────────────────────────────
 if __name__ == '__main__':
