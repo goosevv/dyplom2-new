@@ -245,9 +245,6 @@ export default function Recommendations() {
               );
             })}
           </Select>
-          <Button size="md" onClick={() => setSortBy('score')}>
-            Сортувати за рейтингом
-          </Button>
         </Flex>
       )}
 
