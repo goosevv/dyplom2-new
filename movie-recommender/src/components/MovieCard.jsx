@@ -1,6 +1,5 @@
-// src/components/MovieCard.jsx
-import React, { useState, useEffect, useContext } from "react";
-import axios from "axios";
+import React, { useState, useEffect, useContext } from 'react';
+import axios from 'axios';
 import {
   Box,
   AspectRatio,
@@ -11,13 +10,14 @@ import {
   Spinner,
   useColorModeValue,
   Flex,
-} from "@chakra-ui/react";
-import { FaHeart, FaRegHeart } from "react-icons/fa";
-import { LocaleContext } from "../LocaleContext";
-import { TMDB_KEY, TMDB_API_BASE, TMDB_IMG_BASE, authHeaders } from "../config";
+  VStack,
+} from '@chakra-ui/react';
+import { FaHeart, FaRegHeart } from 'react-icons/fa';
+import { LocaleContext } from '../LocaleContext';
+import { TMDB_KEY, TMDB_API_BASE, TMDB_IMG_BASE, authHeaders } from '../config';
 
-// Кэш жанров
 const genreCache = {};
+
 async function loadGenres(lang) {
   if (genreCache[lang]) return genreCache[lang];
   try {
@@ -25,7 +25,7 @@ async function loadGenres(lang) {
       params: { api_key: TMDB_KEY, language: lang },
     });
     const map = {};
-    res.data.genres.forEach((g) => (map[g.id] = g.name));
+    res.data.genres.forEach(g => (map[g.id] = g.name));
     genreCache[lang] = map;
     return map;
   } catch {
@@ -33,42 +33,31 @@ async function loadGenres(lang) {
   }
 }
 
-export default function MovieCard({ movie, onClickCard }) {
-  // ── 1) Хуки ────────────────────────────────
+export default function MovieCard({ movie, onClickCard, showRating }) {
   const { tmdbLang } = useContext(LocaleContext);
   const [details, setDetails] = useState(null);
   const [liked, setLiked] = useState(false);
 
-  // Все useColorModeValue ВЫЗЫВАЕМ до любого return
-  const bg = useColorModeValue("white", "gray.700");
-  const overlayBg = useColorModeValue(
-    "rgba(255,255,255,0.8)",
-    "rgba(0,0,0,0.8)"
-  );
-  const descriptionTextColor = useColorModeValue("gray.800", "white");
-  const footerBgColor = useColorModeValue("whiteAlpha.900", "blackAlpha.900");
+  const bg = useColorModeValue('white', 'gray.700');
+  const overlayBg = useColorModeValue('rgba(255,255,255,0.9)', 'rgba(0,0,0,0.8)');
+  const footerBg = useColorModeValue('whiteAlpha.900', 'blackAlpha.900');
+  const textColor = useColorModeValue('gray.800', 'white');
 
-  // ── 2) Подгружаем детали и лайки ────────────
   useEffect(() => {
     let mounted = true;
-
     loadGenres(tmdbLang);
-
-    const favs = JSON.parse(localStorage.getItem("favorites") || "[]");
+    const favs = JSON.parse(localStorage.getItem('favorites') || '[]');
     setLiked(favs.includes(movie.movieId));
 
-    const titleNoYear = movie.title.replace(/\s*\(\d{4}\)$/, "");
+    // подгрузка деталей
+    const titleNoYear = movie.title.replace(/\s*\(\d{4}\)$/, '');
     const yearMatch = movie.title.match(/\((\d{4})\)$/);
-    const params = {
-      api_key: TMDB_KEY,
-      query: titleNoYear,
-      language: tmdbLang,
-    };
+    const params = { api_key: TMDB_KEY, query: titleNoYear, language: tmdbLang };
     if (yearMatch) params.year = yearMatch[1];
 
     axios
       .get(`${TMDB_API_BASE}/search/movie`, { params })
-      .then((r) => mounted && setDetails(r.data.results?.[0] || {}))
+      .then(r => mounted && setDetails(r.data.results?.[0] || {}))
       .catch(() => mounted && setDetails({}));
 
     return () => {
@@ -76,53 +65,38 @@ export default function MovieCard({ movie, onClickCard }) {
     };
   }, [movie.movieId, tmdbLang]);
 
-  // ── 3) Спиннер, пока details=null ───────────
+  const toggleLike = async e => {
+    e.stopPropagation();
+    try {
+      if (liked) {
+        await axios.delete(`/api/recommend/user/favorites`, {
+          ...authHeaders(),
+          data: { movieId: movie.movieId },
+        });
+      } else {
+        await axios.post(`/api/recommend/user/favorites`, { movieId: movie.movieId }, authHeaders());
+      }
+      const favs = JSON.parse(localStorage.getItem('favorites') || '[]');
+      const updated = liked ? favs.filter(id => id !== movie.movieId) : [...favs, movie.movieId];
+      localStorage.setItem('favorites', JSON.stringify(updated));
+      setLiked(!liked);
+    } catch {}
+  };
+
   if (details === null) {
     return (
-      <Box maxW="sm" w="100%" textAlign="center" py={6} bg={bg}>
+      <Box maxW="sm" w="100%" bg={bg} textAlign="center" py={6}>
         <Spinner size="lg" />
       </Box>
     );
   }
 
-  // ── 4) Подготовка данных ─────────────────────
-  const poster = details.poster_path
-    ? `${TMDB_IMG_BASE}${details.poster_path}`
-    : "/placeholder.png";
-  const year = (details.release_date || "").slice(0, 4);
-  const ids = details.genre_ids || details.genres?.map((g) => g.id) || [];
-  const genres = ids
-    .map((id) => genreCache[tmdbLang]?.[id])
-    .filter(Boolean)
-    .join(", ");
-  const overview = details.overview || "Описание отсутствует";
+  const poster = details.poster_path ? `${TMDB_IMG_BASE}${details.poster_path}` : '/placeholder.png';
+  const year = (details.release_date || '').slice(0, 4);
+  const ids = details.genre_ids || details.genres?.map(g => g.id) || [];
+  const genres = ids.map(id => genreCache[tmdbLang]?.[id]).filter(Boolean).join(', ');
+  const overview = details.overview || 'Опис відсутній';
 
-  // ── 5) Лайк/дизлайк ─────────────────────────
-  const toggleLike = async (e) => {
-    e.stopPropagation();
-    try {
-      if (liked) {
-        await axios.delete(`/recommend/user/favorites`, {
-          ...authHeaders(),
-          data: { movieId: movie.movieId },
-        });
-      } else {
-        await axios.post(
-          `/recommend/user/favorites`,
-          { movieId: movie.movieId },
-          authHeaders()
-        );
-      }
-      const favs = JSON.parse(localStorage.getItem("favorites") || "[]");
-      const updated = liked
-        ? favs.filter((id) => id !== movie.movieId)
-        : [...favs, movie.movieId];
-      localStorage.setItem("favorites", JSON.stringify(updated));
-      setLiked(!liked);
-    } catch {}
-  };
-
-  // ── 6) Основной рендер ───────────────────────
   return (
     <Box
       pos="relative"
@@ -132,25 +106,25 @@ export default function MovieCard({ movie, onClickCard }) {
       boxShadow="md"
       borderRadius="md"
       overflow="hidden"
-      cursor={onClickCard ? "pointer" : "default"}
+      role="group"
+      cursor="pointer"
       onClick={onClickCard}
-      role={onClickCard ? "group" : undefined}
-      transition="transform .2s"
+      transition="transform .2s, box-shadow .2s"
       _hover={{
-        transform: onClickCard ? "scale(1.05)" : undefined,
-        boxShadow: onClickCard ? "lg" : undefined,
-      }}>
+        transform: 'scale(1.03)',
+        boxShadow: 'lg',
+      }}
+    >
       <AspectRatio ratio={2 / 3}>
         <Image src={poster} alt={details.title} objectFit="cover" />
       </AspectRatio>
 
-      <Box p={2} bg={bg}>
+      <Box p={2}>
         <Heading as="h5" size="md" isTruncated>
           {details.title}
         </Heading>
       </Box>
 
-      {/* Оверлей */}
       <Box
         pos="absolute"
         inset="0"
@@ -159,31 +133,45 @@ export default function MovieCard({ movie, onClickCard }) {
         transition="opacity .3s"
         _groupHover={{ opacity: 1 }}
         display="flex"
-        flexDir="column"
-        justify="space-between">
-        <Box p={4} overflowY="auto">
-          <Text fontSize="sm" color={descriptionTextColor}>
-            {overview}
-          </Text>
-        </Box>
+        flexDirection="column"
+      >
+        <VStack
+          flex="1"
+          overflowY="auto"
+          align="start"
+          spacing={2}
+          p={4}
+          color={textColor}
+        >
+          <Text fontSize="sm">{overview}</Text>
+        </VStack>
 
-        <Flex p={3} bg={footerBgColor} align="center" justify="space-between">
-        <Text fontSize="xs" color="gray.600" isTruncated maxW="70%">
+        <Flex
+          p={3}
+          bg={footerBg}
+          align="center"
+          justify="space-between"
+          borderTop="1px solid"
+          borderColor={useColorModeValue('gray.200', 'gray.600')}
+        >
+          <Text fontSize="xs" color="gray.500" isTruncated maxW="65%">
             {year}
             {genres && ` • ${genres}`}
           </Text>
+
           {showRating && (
-            <Text fontSize="sm" fontWeight="bold"></Text>
-            {movie.score?.toFixed(2)}
+            <Text fontSize="sm" fontWeight="bold">
+              {movie.score?.toFixed(2)}
             </Text>
           )}
+
           <IconButton
-            aria-label="Нравится"
+            aria-label="Нравиться"
             icon={liked ? <FaHeart /> : <FaRegHeart />}
             onClick={toggleLike}
-            variant="solid"
-            colorScheme="red"
+            variant="ghost"
             size="sm"
+            colorScheme="red"
           />
         </Flex>
       </Box>
