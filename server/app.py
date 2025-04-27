@@ -11,7 +11,7 @@ from flask_jwt_extended import (
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-
+from surprise import dump
 # ── Init Flask ─────────────────────────────────────────────────────
 app = Flask(__name__)
 from config import Config
@@ -36,14 +36,15 @@ with open(os.path.join(MODELS_DIR, 'knn_model.pkl'), 'rb') as f:
 with open(os.path.join(MODELS_DIR, 'svd_model.pkl'), 'rb') as f:
     svd_model = pickle.load(f)
 
-
+trainset = knn_model.trainset
+_raw2inner = getattr(trainset, '_raw2inner_id_items', None) or trainset._raw2inner_id_items
+VALID_IDS = set(int(rid) for rid in _raw2inner.keys())
 # ── Recommendation helpers ─────────────────────────────────────────
 def knn_recommend(movie_id: int, n: int):
     """
     Surprise.KNNBasic: берём соседей через get_neighbors и sim.
     """
     trainset = knn_model.trainset
-    VALID_IDS = set(map(int, trainset._raw2inner_id_items.keys()))
     raw_iid  = str(movie_id)
     try:
         inner_id = trainset.to_inner_iid(raw_iid)
