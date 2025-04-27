@@ -48,7 +48,7 @@ def knn_recommend(movie_id: int, n: int):
     Surprise.KNNBasic: берём соседей через get_neighbors и sim.
     """
     trainset = knn_model.trainset
-    raw_iid  = str(movie_id)
+    raw_iid = movie_id
     try:
         inner_id = trainset.to_inner_iid(raw_iid)
     except ValueError:
