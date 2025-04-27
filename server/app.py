@@ -12,6 +12,8 @@ from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from surprise import dump
+import scipy
+import scipy.sparse as sp
 # ── Init Flask ─────────────────────────────────────────────────────
 app = Flask(__name__)
 from config import Config
@@ -29,15 +31,21 @@ from models.user_list  import List, ListMovie
 
 # ── Load ML models ─────────────────────────────────────────────────
 MODELS_DIR = os.path.join(os.path.dirname(__file__), 'models')
-with open(os.path.join(MODELS_DIR, 'movie_id_map.pkl'), 'rb') as f:
-    movie_map = pickle.load(f)
+with open(os.path.join(MODELS_DIR, 'movie_id_to_index.pkl'), 'rb') as f:
+    id_to_idx = pickle.load(f)
+with open(os.path.join(MODELS_DIR, 'index_to_movie_id.pkl'), 'rb') as f:
+    idx_to_id = pickle.load(f)
 with open(os.path.join(MODELS_DIR, 'knn_model.pkl'), 'rb') as f:
     knn_model = pickle.load(f)
 with open(os.path.join(MODELS_DIR, 'svd_model.pkl'), 'rb') as f:
     svd_model = pickle.load(f)
+## контентная модель теперь хранит только NearestNeighbors
 with open(os.path.join(MODELS_DIR, "content_nn.pkl"), "rb") as f:
-    content_nn, movie_id_map = pickle.load(f)
-content_features = scipy.sparse.load_npz(os.path.join(MODELS_DIR, "content_features.npz"))
+    content_nn = pickle.load(f)
+# загружаем sparse-матрицу признаков
+content_features = sp.load_npz(
+    os.path.join(MODELS_DIR, "content_features.npz")
+)
 
 trainset = knn_model.trainset
 _raw2inner = getattr(trainset, '_raw2inner_id_items', None) or trainset._raw2inner_id_items
@@ -93,14 +101,16 @@ def svd_recommend(movie_id: int, n: int):
     return recs
 
 def content_recommend(movie_id: int, n: int):
-    idx = movie_id_map.get(movie_id)
+    idx = id_to_idx.get(movie_id)
     if idx is None:
         return []
-    dists, neighs = content_nn.kneighbors(content_features[idx], n_neighbors=n+1)
+        dists, neighs = content_nn.kneighbors(
+           content_features[idx], n_neighbors=n+1
+     )
     recs = []
-    for dist, nid in zip(dists[0][1:], neighs[0][1:]):
-        ml_id = list(movie_id_map.keys())[list(movie_id_map.values()).index(nid)]
-        recs.append({"movieId": ml_id, "score": 1 - dist})
+    for dist, neigh_idx in zip(dists[0][1:], neighs[0][1:]):
+        raw_id = idx_to_id[neigh_idx]
+        recs.append({"movieId": raw_id, "score": 1 - dist})
     return recs
 
 def svd_fallback(n:int):
