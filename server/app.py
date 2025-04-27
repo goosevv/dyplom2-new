@@ -43,6 +43,7 @@ def knn_recommend(movie_id: int, n: int):
     Surprise.KNNBasic: берём соседей через get_neighbors и sim.
     """
     trainset = knn_model.trainset
+    VALID_IDS = set(map(int, trainset._raw2inner_id_items.keys()))
     raw_iid  = str(movie_id)
     try:
         inner_id = trainset.to_inner_iid(raw_iid)
@@ -191,18 +192,17 @@ def recommend_by_movie(movie_id):
     alg = request.args.get('alg', 'knn').lower()
 
     # получаем "сырые" рекомендации
-    raw = svd_recommend(movie_id, n) if alg == 'svd' else knn_recommend(movie_id, n)
+    raw = knn_recommend(movie_id, n) if alg=='knn' else svd_recommend(movie_id, n)
 
-    # подтягиваем названия из БД
+    if not raw:
+        top = Movie.query.order_by(Movie.popularity.desc()).limit(n).all()
+        raw = [{'movieId': m.movie_id, 'score': 0} for m in top]
+
     out = []
     for r in raw:
         m = Movie.query.filter_by(movie_id=r['movieId']).first()
         if m:
-            out.append({
-                'movieId': m.movie_id,
-                'title':   m.title,
-                'score':   round(r['score'], 3)
-            })
+            out.append({'movieId':m.movie_id,'title':m.title,'score':round(r['score'],3)})
     return jsonify(out), 200
 
 @app.route('/api/movies/search')
@@ -210,11 +210,17 @@ def search_local_movies():
     q = request.args.get('q','').strip()
     if not q:
         return jsonify([]), 200
+
+    # фильтруем по title И по наличию в модели
     results = Movie.query \
-        .filter(Movie.title.ilike(f'%{q}%')) \
+        .filter(
+            Movie.title.ilike(f'%{q}%'),
+            Movie.movie_id.in_(VALID_IDS)
+        ) \
         .order_by(Movie.title) \
         .limit(10) \
         .all()
+
     return jsonify([{'movieId': m.movie_id, 'title': m.title} for m in results]), 200
 
 # ── Run ─────────────────────────────────────────────────────────────
