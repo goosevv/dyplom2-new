@@ -10,19 +10,21 @@ import {
   Spinner,
   useColorModeValue,
   Flex,
-  VStack,
+  VStack
 } from '@chakra-ui/react';
+import { motion } from 'framer-motion';
 import { FaHeart, FaRegHeart } from 'react-icons/fa';
 import { LocaleContext } from '../LocaleContext';
 import { TMDB_KEY, TMDB_API_BASE, TMDB_IMG_BASE, authHeaders } from '../config';
 
+const MotionBox = motion(Box);
 const genreCache = {};
 
 async function loadGenres(lang) {
   if (genreCache[lang]) return genreCache[lang];
   try {
     const res = await axios.get(`${TMDB_API_BASE}/genre/movie/list`, {
-      params: { api_key: TMDB_KEY, language: lang },
+      params: { api_key: TMDB_KEY, language: lang }
     });
     const map = {};
     res.data.genres.forEach(g => (map[g.id] = g.name));
@@ -49,7 +51,6 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
     const favs = JSON.parse(localStorage.getItem('favorites') || '[]');
     setLiked(favs.includes(movie.movieId));
 
-    // подгрузка деталей
     const titleNoYear = movie.title.replace(/\s*\(\d{4}\)$/, '');
     const yearMatch = movie.title.match(/\((\d{4})\)$/);
     const params = { api_key: TMDB_KEY, query: titleNoYear, language: tmdbLang };
@@ -60,24 +61,28 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
       .then(r => mounted && setDetails(r.data.results?.[0] || {}))
       .catch(() => mounted && setDetails({}));
 
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [movie.movieId, tmdbLang]);
 
   const toggleLike = async e => {
     e.stopPropagation();
     try {
       if (liked) {
-        await axios.delete(`/api/recommend/user/favorites`, {
+        await axios.delete('/api/recommend/user/favorites', {
           ...authHeaders(),
-          data: { movieId: movie.movieId },
+          data: { movieId: movie.movieId }
         });
       } else {
-        await axios.post(`/api/recommend/user/favorites`, { movieId: movie.movieId }, authHeaders());
+        await axios.post(
+          '/api/recommend/user/favorites',
+          { movieId: movie.movieId },
+          authHeaders()
+        );
       }
       const favs = JSON.parse(localStorage.getItem('favorites') || '[]');
-      const updated = liked ? favs.filter(id => id !== movie.movieId) : [...favs, movie.movieId];
+      const updated = liked
+        ? favs.filter(id => id !== movie.movieId)
+        : [...favs, movie.movieId];
       localStorage.setItem('favorites', JSON.stringify(updated));
       setLiked(!liked);
     } catch {}
@@ -91,14 +96,20 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
     );
   }
 
-  const poster = details.poster_path ? `${TMDB_IMG_BASE}${details.poster_path}` : '/placeholder.png';
+  const poster = details.poster_path
+    ? `${TMDB_IMG_BASE}${details.poster_path}`
+    : '/placeholder.png';
   const year = (details.release_date || '').slice(0, 4);
   const ids = details.genre_ids || details.genres?.map(g => g.id) || [];
-  const genres = ids.map(id => genreCache[tmdbLang]?.[id]).filter(Boolean).join(', ');
+  const genres = ids
+    .map(id => genreCache[tmdbLang]?.[id])
+    .filter(Boolean)
+    .join(', ');
   const overview = details.overview || 'Опис відсутній';
 
   return (
-    <Box
+    <MotionBox
+      as="div"
       pos="relative"
       maxW="sm"
       w="100%"
@@ -109,11 +120,9 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
       role="group"
       cursor="pointer"
       onClick={onClickCard}
-      transition="transform .2s, box-shadow .2s"
-      _hover={{
-        transform: 'scale(1.03)',
-        boxShadow: 'lg',
-      }}
+      initial={{ scale: 1 }}
+      whileHover={{ scale: 1.03, boxShadow: '0 8px 20px rgba(0,0,0,0.2)' }}
+      transition={{ duration: 0.2 }}
     >
       <AspectRatio ratio={2 / 3}>
         <Image src={poster} alt={details.title} objectFit="cover" />
@@ -175,6 +184,6 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
           />
         </Flex>
       </Box>
-    </Box>
+    </MotionBox>
   );
 }
