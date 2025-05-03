@@ -10,103 +10,98 @@ import {
   Alert,
   AlertIcon,
   Spinner,
-  useColorModeValue, // Добавим для фона
-  List,            // Для списка избранного
-  ListItem,        // Для элемента списка
+  useColorModeValue,
+  List,
+  ListItem,
+  Center // Импортируем Center для спиннера
 } from "@chakra-ui/react";
-// useNavigate больше не нужен здесь для выхода
+// useNavigate больше не нужен здесь для выхода и проверки
 // import { useNavigate } from "react-router-dom";
-// authHeaders тоже не нужен, используем токен напрямую
+// authHeaders тоже не нужен, если используем токен напрямую
 // import { authHeaders } from "../config";
 
 // Компонент теперь принимает user и onLogout из App.jsx
 export default function Profile({ user, onLogout }) {
   // Убираем локальное состояние user, используем проп
-  // const [user, setUser] = useState(null);
+  // const navigate = useNavigate(); // Убираем
+  // const [user, setUser] = useState(null); // Убираем
+
   const [favs, setFavs] = useState(null); // Оставляем состояние для избранного
   const [loadingFavs, setLoadingFavs] = useState(true); // Состояние загрузки избранного
   const [error, setError] = useState(null);
 
   // Стили фона
-  const bg = useColorModeValue("gray.100", "gray.800");
-  const cardBg = useColorModeValue("white", "gray.700");
+  const bg = useColorModeValue("gray.100", "gray.800"); // Фон для всей страницы
+  const cardBg = useColorModeValue("white", "gray.700"); // Фон для карточки профиля
 
   useEffect(() => {
     // Убираем проверку токена и пользователя из localStorage - ProtectedRoute уже это сделал
-    // const token = localStorage.getItem("token");
-    // const u = JSON.parse(localStorage.getItem("user") || "null");
-    // if (!token || !u) {
-    //   navigate("/login"); // Это больше не нужно
-    //   return;
-    // }
+    // if (!token || !u) { navigate("/login"); return; }
     // setUser(u); // Используем user из пропсов
 
-    // Загружаем избранное, если пользователь определен
+    // Загружаем избранное, только если проп user существует
     if (user) {
       const token = localStorage.getItem("token"); // Токен все еще нужен для запроса
       if (!token) { // Доп. проверка на случай рассинхрона
           setError("Помилка аутентифікації для завантаження улюблених.");
           setLoadingFavs(false);
+          setFavs([]); // Устанавливаем пустой массив
           return;
       }
-      setLoadingFavs(true); // Начинаем загрузку избранного
+      setLoadingFavs(true);
+      setError(null); // Сбрасываем ошибку перед запросом
       axios
         .get("/api/recommend/user/favorites", {
-          // Используем authHeaders или напрямую токен
           headers: { Authorization: `Bearer ${token}` }
         })
         .then((res) => {
           setFavs(res.data);
-          setError(null); // Сбрасываем ошибку, если была
         })
         .catch(() => {
           setError("Не вдалося завантажити улюблені фільми.");
           setFavs([]); // Устанавливаем пустой массив при ошибке
         })
         .finally(() => {
-          setLoadingFavs(false); // Завершаем загрузку
+          setLoadingFavs(false);
         });
     } else {
         // Если пользователя нет (теоретически не должно случиться из-за ProtectedRoute)
         setLoadingFavs(false);
         setFavs([]);
     }
-  // Зависимость от user.id, чтобы перезагрузить избранное, если пользователь сменится
-  // (хотя в текущей архитектуре это маловероятно без перезагрузки страницы)
+  // Зависимость от user (или user.id), чтобы перезагрузить данные при его изменении
+  // Но т.к. user передается из App, изменение будет при смене пользователя (логаут/логин)
   }, [user]);
 
-  // Функция выхода теперь просто вызывает пропс
-  // const handleLogout = () => {
-  //   localStorage.removeItem("token");
-  //   localStorage.removeItem("user");
-  //   localStorage.removeItem("user_id");
-  //   navigate("/"); // Перенаправление теперь произойдет в App.jsx или NavBar
-  // };
+  // Убираем локальную функцию handleLogout
+  // const handleLogout = () => { ... };
 
-  // Если user еще не пришел из App.jsx (хотя ProtectedRoute должен это предотвратить)
+  // Если user еще null (хотя ProtectedRoute должен это предотвратить),
+  // показываем загрузчик на всю страницу
   if (!user) {
     return (
-      <Center h="80vh"> {/* Используем Center */}
+      <Center h="calc(100vh - 70px)"> {/* Занимаем доступную высоту */}
         <Spinner size="xl" />
       </Center>
     );
   }
 
+  // Основной рендеринг, когда user точно есть
   return (
-    <Box bg={bg} minH="calc(100vh - 70px)" py={10} px={4}> {/* Добавил фон и отступы */}
+    <Box bg={bg} minH="calc(100vh - 70px)" py={10} px={4}>
       <Box
-        maxW="lg" // Увеличил ширину
+        maxW="lg"
         mx="auto"
-        p={8} // Увеличил padding
-        bg={cardBg} // Фон карточки
+        p={8}
+        bg={cardBg}
         borderWidth="1px"
-        borderRadius="lg" // Сделал скругление больше
-        boxShadow="lg" // Добавил тень
+        borderRadius="lg"
+        boxShadow="lg"
       >
-        <VStack spacing={6} align="start" w="100%"> {/* Увеличил spacing */}
+        <VStack spacing={6} align="start" w="100%">
           <Heading as="h1" size="lg">Профіль користувача</Heading>
 
-          {/* Отображаем информацию из user пропа */}
+          {/* Информация о пользователе из пропа user */}
           <Box>
             <Text fontSize="lg">
               <b>Ім’я:</b> {user.name}
@@ -114,31 +109,36 @@ export default function Profile({ user, onLogout }) {
             <Text fontSize="lg">
               <b>Електронна пошта:</b> {user.email}
             </Text>
+            <Text fontSize="sm" color="gray.500">
+              User ID: {user.id} {/* Можно показывать ID для отладки */}
+            </Text>
           </Box>
 
           <Heading size="md" mt={4} borderBottomWidth="1px" pb={2} w="100%">
             Улюблені фільми
           </Heading>
 
+          {/* Отображение ошибок */}
           {error && (
             <Alert status="error" borderRadius="md">
               <AlertIcon /> {error}
             </Alert>
           )}
 
+          {/* Отображение избранного */}
           {loadingFavs ? (
             <Spinner size="md" />
           ) : favs && favs.length === 0 ? (
             <Text>Список улюблених фільмів порожній.</Text>
           ) : favs && favs.length > 0 ? (
-            // Используем List для семантики
             <List spacing={2} w="100%">
               {favs.map((m) => (
-                // Можно сделать ссылки на фильмы, если есть ID/путь
                 <ListItem key={m.movieId}>• {m.title}</ListItem>
               ))}
             </List>
-          ) : null /* Ничего не показываем, если favs еще null и не загружается */ }
+          ) : (
+            !error && <Text>Не вдалося завантажити список.</Text> // Если не грузится и не ошибка
+          )}
 
           {/* Кнопка выхода теперь вызывает onLogout из пропсов */}
           <Button colorScheme="red" variant="outline" onClick={onLogout} mt={6} alignSelf="flex-start">
