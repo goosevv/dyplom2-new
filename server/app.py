@@ -217,7 +217,7 @@ def login():
     if not user or not check_password_hash(user.password, data.get('password','')):
         return jsonify({"message": "Невірний логін або пароль"}), 401
 
-    token = create_access_token(identity=user.id)
+    token = create_access_token(identity=str(user.id))
     return jsonify({
         'access_token': token,
         'user': {'id': user.id, 'name': user.name, 'email': user.email}
@@ -255,6 +255,8 @@ def get_or_create_fav_list(user_id):
 @app.route('/api/recommend/user/favorites', methods=['GET','POST','DELETE'])
 @jwt_required()
 def user_favorites():
+    print("→ Headers:", dict(request.headers))
+    print("→ JSON:", request.get_json())
     user_id = get_jwt_identity()
     fav_list = get_or_create_fav_list(user_id)
 

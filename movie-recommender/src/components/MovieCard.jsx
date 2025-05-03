@@ -1,4 +1,3 @@
-// src/components/MovieCard.jsx
 import React, { useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import {
@@ -19,73 +18,85 @@ import {
   TMDB_KEY,
   TMDB_API_BASE,
   TMDB_IMG_BASE,
-  authHeaders
 } from '../config';
 import { LocaleContext } from '../LocaleContext';
 
 export default function MovieCard({ movie, onClickCard, showRating }) {
-  // 1) контекст локали
   const { tmdbLang } = useContext(LocaleContext);
-
-  // 2) авторизация
   const token = localStorage.getItem('token');
   const loggedIn = Boolean(token);
 
-  // 3) стили
-  const bg        = useColorModeValue('white', 'gray.700');
-  const overlayBg = useColorModeValue('rgba(255,255,255,0.9)', 'rgba(0,0,0,0.8)');
-  const footerBg  = useColorModeValue('whiteAlpha.900', 'blackAlpha.900');
-  const textColor = useColorModeValue('gray.800', 'white');
-
-  // 4) состояния
-  const [details, setDetails]     = useState(null);
-  const [liked, setLiked]         = useState(false);
+  const [details, setDetails] = useState(null);
+  const [liked, setLiked] = useState(false);
   const [userRating, setUserRating] = useState(0);
 
-  // 5) загрузить детали фильма из TMDb
+  // Fetch TMDb movie details
   useEffect(() => {
     let mounted = true;
-    const params = { api_key: TMDB_KEY, language: tmdbLang, query: movie.title.replace(/\s*\(\d{4}\)$/, '') };
+    const params = {
+      api_key: TMDB_KEY,
+      language: tmdbLang,
+      query: movie.title.replace(/\s*\(\d{4}\)$/, ''),
+    };
     const yearMatch = movie.title.match(/\((\d{4})\)$/);
     if (yearMatch) params.year = yearMatch[1];
 
-    axios.get(`${TMDB_API_BASE}/search/movie`, { params })
-      .then(res => { if (mounted) setDetails(res.data.results?.[0] || {}); })
-      .catch(() => { if (mounted) setDetails({}); });
+    axios
+      .get(`${TMDB_API_BASE}/search/movie`, { params })
+      .then(res => {
+        if (mounted) setDetails(res.data.results?.[0] || {});
+      })
+      .catch(() => {
+        if (mounted) setDetails({});
+      });
 
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [movie.title, tmdbLang]);
 
-  // 6) загрузить из БД:  a) есть ли в избранном, b) текущий рейтинг пользователя
+  // Load user rating and favorites
   useEffect(() => {
     if (!loggedIn) return;
 
-    // рейтинг
-    axios.get(`/api/ratings/${localStorage.getItem('user_id')}`, authHeaders())
+    // Load user rating
+    axios
+      .get(`/api/ratings/${localStorage.getItem('user_id')}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
       .then(res => {
         const rec = res.data.find(r => r.movieId === movie.movieId);
         setUserRating(rec ? rec.score : 0);
       })
-      .catch(() => { /* игнор */ });
+      .catch(() => {});
 
-    // избранное
-    axios.get('/api/recommend/user/favorites', authHeaders())
+    // Load favorites (no Content-Type header)
+    axios
+      .get('/api/recommend/user/favorites', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
       .then(res => {
         setLiked(res.data.some(m => m.movieId === movie.movieId));
       })
-      .catch(() => { /* игнор */ });
+      .catch(() => {});
   }, [loggedIn, movie.movieId]);
 
-  // 7) обработчики
+  // Handle star rating change
   const handleRatingChange = newRating => {
     setUserRating(newRating);
     axios.post(
       '/api/ratings',
       { movieId: movie.movieId, score: newRating },
-      authHeaders()
-    );
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    ).catch(err => console.error(err));
   };
 
+  // Toggle favorite
   const toggleLike = e => {
     e.stopPropagation();
     if (!loggedIn) return;
@@ -93,27 +104,41 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
     if (liked) {
       axios.delete(
         '/api/recommend/user/favorites',
-        { ...authHeaders(), data: { movieId: movie.movieId } }
-      ).then(() => setLiked(false));
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          data: { movieId: movie.movieId }
+        }
+      )
+      .then(() => setLiked(false))
+      .catch(err => console.error(err));
     } else {
       axios.post(
         '/api/recommend/user/favorites',
         { movieId: movie.movieId },
-        authHeaders()
-      ).then(() => setLiked(true));
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+      .then(() => setLiked(true))
+      .catch(err => console.error(err));
     }
   };
 
-  // 8) пока details не загружены
+  // Show loading spinner if TMDb details not ready
   if (!details || !details.title) {
     return (
-      <Box maxW="sm" w="100%" bg={bg} textAlign="center" py={6}>
+      <Box maxW="sm" w="100%" bg={useColorModeValue('white','gray.700')} textAlign="center" py={6}>
         <Spinner size="lg" />
       </Box>
     );
   }
 
-  // 9) данные для UI
   const poster = details.poster_path
     ? `${TMDB_IMG_BASE}${details.poster_path}`
     : '/placeholder.png';
@@ -126,7 +151,7 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
       pos="relative"
       maxW="sm"
       w="100%"
-      bg={bg}
+      bg={useColorModeValue('white','gray.700')}
       boxShadow="md"
       borderRadius="md"
       overflow="hidden"
@@ -148,23 +173,23 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
       <Box
         pos="absolute"
         inset="0"
-        bg={overlayBg}
+        bg={useColorModeValue('rgba(255,255,255,0.9)','rgba(0,0,0,0.8)')}
         opacity={0}
         _hover={{ opacity: 1 }}
         transition="opacity .3s"
         display="flex"
         flexDirection="column"
       >
-        <Flex flex="1" overflowY="auto" p={4} color={textColor}>
+        <Flex flex="1" overflowY="auto" p={4} color={useColorModeValue('gray.800','white')}>
           <Text fontSize="sm">{overview}</Text>
         </Flex>
         <Flex
           p={3}
-          bg={footerBg}
+          bg={useColorModeValue('whiteAlpha.900','blackAlpha.900')}
           align="center"
           justify="space-between"
           borderTop="1px solid"
-          borderColor={useColorModeValue('gray.200', 'gray.600')}
+          borderColor={useColorModeValue('gray.200','gray.600')}
         >
           <Text fontSize="xs" color="gray.500" isTruncated maxW="40%">
             {year}{genres && ` • ${genres}`}

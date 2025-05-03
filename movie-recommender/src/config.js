@@ -9,6 +9,7 @@ export const API_ROOT = ''
 // Заголовки для JWT-авторизации
 export const authHeaders = () => ({
   headers: {
-    Authorization: `Bearer ${localStorage.getItem('token')}`
+    Authorization: `Bearer ${localStorage.getItem("token")}`,
+    "Content-Type": "application/json"
   }
-})
+});
