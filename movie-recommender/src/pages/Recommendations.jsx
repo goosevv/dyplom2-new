@@ -1,11 +1,11 @@
-import React, { useState, useContext } from 'react';
-import axios from 'axios';
+import React, { useState, useContext } from "react";
+import axios from "axios";
 import {
   Box,
   VStack,
   Flex,
   Button,
-  ButtonGroup,        // <-- обязательно
+  ButtonGroup, // <-- обязательно
   Select,
   Input,
   InputGroup,
@@ -16,26 +16,26 @@ import {
   AlertIcon,
   useColorModeValue,
   useDisclosure,
-} from '@chakra-ui/react';
-import { SearchIcon } from '@chakra-ui/icons';
-import InfiniteScroll from 'react-infinite-scroll-component';
-import MovieCard from '../components/MovieCard';
-import MovieModal from '../components/MovieModal';
-import { LocaleContext } from '../LocaleContext';
+} from "@chakra-ui/react";
+import { SearchIcon } from "@chakra-ui/icons";
+import InfiniteScroll from "react-infinite-scroll-component";
+import MovieCard from "../components/MovieCard";
+import MovieModal from "../components/MovieModal";
+import { LocaleContext } from "../LocaleContext";
 
 export default function Recommendations() {
   const { tmdbLang } = useContext(LocaleContext);
-  const bg = useColorModeValue('gray.50', 'gray.800');
-  const fg = useColorModeValue('gray.800', 'white');
+  const bg = useColorModeValue("gray.50", "gray.800");
+  const fg = useColorModeValue("gray.800", "white");
 
   // 1) Поиск
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
 
   // 2) Выбран фильм + алгоритм
   const [selectedMovie, setSelectedMovie] = useState(null);
-  const [algorithm, setAlgorithm] = useState('hybrid');
+  const [algorithm, setAlgorithm] = useState("hybrid");
 
   // 3) Рекомендации + Infinite Scroll
   const [recommendations, setRecommendations] = useState([]);
@@ -43,7 +43,7 @@ export default function Recommendations() {
   const PAGE_SIZE = 8;
 
   // 4) Фильтр по году
-  const [yearFilter, setYearFilter] = useState('');
+  const [yearFilter, setYearFilter] = useState("");
 
   // 5) Модалка
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -63,19 +63,19 @@ export default function Recommendations() {
     setHasSearched(true);
     setLoading(true);
     try {
-      const res = await axios.get('/api/movies/search', {
+      const res = await axios.get("/api/movies/search", {
         params: { q: query.trim() },
       });
       setSearchResults(res.data);
     } catch {
-      setError('Помилка пошуку, спробуйте пізніше.');
+      setError("Помилка пошуку, спробуйте пізніше.");
     } finally {
       setLoading(false);
     }
   };
 
   // Выбрать фильм
-  const handlePickMovie = movie => {
+  const handlePickMovie = (movie) => {
     setSelectedMovie(movie);
     setRecommendations([]);
     setDisplayed([]);
@@ -94,7 +94,7 @@ export default function Recommendations() {
       setRecommendations(res.data);
       setDisplayed(res.data.slice(0, PAGE_SIZE));
     } catch {
-      setError('Не вдалося завантажити рекомендації.');
+      setError("Не вдалося завантажити рекомендації.");
     } finally {
       setLoading(false);
     }
@@ -106,23 +106,23 @@ export default function Recommendations() {
       displayed.length,
       displayed.length + PAGE_SIZE
     );
-    setDisplayed(d => [...d, ...next]);
+    setDisplayed((d) => [...d, ...next]);
   };
 
   // Сброс всего
   const resetAll = () => {
-    setQuery('');
+    setQuery("");
     setSearchResults([]);
     setHasSearched(false);
     setSelectedMovie(null);
     setRecommendations([]);
     setDisplayed([]);
-    setYearFilter('');
+    setYearFilter("");
     setError(null);
   };
 
   // Фильтр по году
-  const filtered = displayed.filter(m => {
+  const filtered = displayed.filter((m) => {
     if (!yearFilter) return true;
     const year = m.title.match(/\((\d{4})\)/)?.[1];
     return year === yearFilter;
@@ -147,15 +147,14 @@ export default function Recommendations() {
               placeholder="Введіть назву фільму"
               size="lg"
               value={query}
-              onChange={e => setQuery(e.target.value)}
-              onKeyPress={e => e.key === 'Enter' && handleSearch()}
-              bg={useColorModeValue('white', 'gray.700')}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+              bg={useColorModeValue("white", "gray.700")}
               borderRadius="lg"
               _focus={{
                 boxShadow:
-                  '0 0 0 2px ' +
-                  useColorModeValue('blue.300', 'blue.600'),
-                borderColor: useColorModeValue('blue.300', 'blue.600'),
+                  "0 0 0 2px " + useColorModeValue("blue.300", "blue.600"),
+                borderColor: useColorModeValue("blue.300", "blue.600"),
               }}
             />
           </InputGroup>
@@ -165,8 +164,7 @@ export default function Recommendations() {
               size="md"
               onClick={handleSearch}
               isLoading={loading}
-              px={8}
-            >
+              px={8}>
               Знайти
             </Button>
           </Box>
@@ -180,10 +178,11 @@ export default function Recommendations() {
             ? Array.from({ length: PAGE_SIZE }).map((_, i) => (
                 <Spinner key={i} size="xl" />
               ))
-            : searchResults.map(m => (
+            : searchResults.map((m) => (
                 <MovieCard
                   key={m.movieId}
                   movie={m}
+                  showRating // Добавлено (эквивалентно showRating={true})
                   onClickCard={() => handlePickMovie(m)}
                 />
               ))}
@@ -201,12 +200,11 @@ export default function Recommendations() {
           </Box>
           <Flex justify="center" mb={4}>
             <ButtonGroup size="md" isAttached variant="outline">
-              {['knn', 'content', 'svd', 'hybrid'].map(alg => (
+              {["knn", "content", "svd", "hybrid"].map((alg) => (
                 <Button
                   key={alg}
                   isActive={algorithm === alg}
-                  onClick={() => setAlgorithm(alg)}
-                >
+                  onClick={() => setAlgorithm(alg)}>
                   {alg.toUpperCase()}
                 </Button>
               ))}
@@ -216,8 +214,7 @@ export default function Recommendations() {
             colorScheme="green"
             size="lg"
             onClick={fetchRecommendations}
-            isLoading={loading}
-          >
+            isLoading={loading}>
             Показати рекомендації
           </Button>
         </Box>
@@ -231,8 +228,7 @@ export default function Recommendations() {
             size="md"
             minW="120px"
             value={yearFilter}
-            onChange={e => setYearFilter(e.target.value)}
-          >
+            onChange={(e) => setYearFilter(e.target.value)}>
             {Array.from({ length: 30 }).map((_, i) => {
               const y = 1990 + i;
               return (
@@ -252,10 +248,9 @@ export default function Recommendations() {
           next={loadMore}
           hasMore={displayed.length < recommendations.length}
           loader={<Spinner my={4} />}
-          style={{ overflow: 'visible' }}
-        >
+          style={{ overflow: "visible" }}>
           <SimpleGrid columns={[1, 2, 3, 4]} spacing={6}>
-            {filtered.map(m => (
+            {filtered.map((m) => (
               <MovieCard
                 key={m.movieId}
                 movie={m}
