@@ -30,10 +30,12 @@ export default function Profile() {
     setUser(u);
 
     axios
-      .get("/api/recommend/user/favorites", authHeaders())
-      .then((res) => setFavs(res.data))
-      .catch(() => setError("Не вдалося завантажити улюблені"));
-  }, [navigate]);
+    .get("/api/recommend/user/favorites", {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then((res) => setFavs(res.data))
+    .catch(() => setError("Не вдалося завантажити улюблені"));
+}, [navigate]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");

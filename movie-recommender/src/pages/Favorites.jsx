@@ -20,11 +20,15 @@ export default function Favorites() {
   const bg = useColorModeValue("gray.50", "gray.800");
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
     axios
-      .get("/api/recommend/user/favorites", authHeaders())
+      .get("/api/recommend/user/favorites", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
       .then((res) => setFavs(res.data))
       .catch(() => setError("Не вдалося завантажити улюблені"));
   }, []);
+  
 
   if (error) {
     return (
