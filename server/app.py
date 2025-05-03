@@ -255,13 +255,11 @@ def get_or_create_fav_list(user_id):
 @app.route('/api/recommend/user/favorites', methods=['GET','POST','DELETE'])
 @jwt_required()
 def user_favorites():
-    print("→ Headers:", dict(request.headers))
-    print("→ JSON:", request.get_json())
+    print("→ Headers:", dict(request.headers)) # Можно оставить для отладки или убрать
     user_id = get_jwt_identity()
     fav_list = get_or_create_fav_list(user_id)
 
     if request.method == 'GET':
-        # возвращаем полный список фильмов и их тайтлы
         movies = []
         for lm in fav_list.movies:
             m = Movie.query.get(lm.movie_id)
@@ -269,23 +267,41 @@ def user_favorites():
                 movies.append({'movieId': m.movie_id, 'title': m.title})
         return jsonify(movies), 200
 
+    # --- Блок для POST и DELETE ---
     data = request.get_json()
-    movie_id = data.get('movieId')
+    if not data:
+         abort(400, description="Missing JSON data in request body")
+
     if request.method == 'POST':
-        # добавляем связь ListMovie
-        if not any(lm.movie_id==movie_id for lm in fav_list.movies):
+        # ---> Определяем movie_id ВНУТРИ блока POST <---
+        movie_id = data.get('movieId')
+        if not movie_id:
+             # Добавим более конкретную проверку
+             abort(400, description="Missing 'movieId' in request data for POST")
+
+ # Проверяем, существует ли уже запись
+        # Теперь movie_id точно определен в этой области видимости
+        if not any(lm.movie_id == movie_id for lm in fav_list.movies):
             lm = ListMovie(list_id=fav_list.id, movie_id=movie_id)
             db.session.add(lm)
             db.session.commit()
         return jsonify({'message':'added'}), 201
 
-    # DELETE
-    lm = ListMovie.query.filter_by(list_id=fav_list.id, movie_id=movie_id).first()
-    if lm:
-        db.session.delete(lm)
-        db.session.commit()
-    return jsonify({'message':'deleted'}), 200
+    elif request.method == 'DELETE': # Используем elif для ясности
+        # ---> Определяем movie_id ВНУТРИ блока DELETE <---
+        movie_id = data.get('movieId')
+        if not movie_id:
+             # Добавим более конкретную проверку
+            abort(400, description="Missing 'movieId' in request data for DELETE")
 
+        lm = ListMovie.query.filter_by(list_id=fav_list.id, movie_id=movie_id).first()
+        if lm:
+            db.session.delete(lm)
+            db.session.commit()
+        return jsonify({'message':'deleted'}), 200
+
+    # Если метод не GET, POST или DELETE (на всякий случай)
+    abort(405) # Method Not Allowed
 
 # ── Movie-based recommendations ─────────────────────────────────────
 @app.route('/api/recommend/movie/<int:movie_id>', methods=['GET'])
