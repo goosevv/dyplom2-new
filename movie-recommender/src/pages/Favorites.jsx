@@ -52,7 +52,7 @@ export default function Favorites() {
         spacing={6}
         alignItems="stretch">
         {favs.map((movie) => (
-          <MovieCard key={movie.movieId} movie={movie} />
+          <MovieCard key={movie.movieId} movie={movie} showRating /> // Добавлено
         ))}
       </SimpleGrid>
     </Box>

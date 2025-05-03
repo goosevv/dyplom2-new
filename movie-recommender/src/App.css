@@ -40,3 +40,28 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Заставляем основной контейнер react-simple-star-rating вести себя как строка */
+.movie-card-rating {
+  display: inline-flex !important; /* Важно: inline-flex для отображения в строке */
+  align-items: center !important;
+  vertical-align: middle; /* Дополнительное выравнивание */
+}
+
+/* Заставляем дочерние элементы (сами звезды - span или svg) быть строчно-блочными */
+.movie-card-rating > span,
+.movie-card-rating > svg { /* Нацеливаемся и на span, и на svg на всякий случай */
+  display: inline-block !important;
+  vertical-align: middle !important; /* Выравнивание звезд по вертикали */
+  /* Убираем возможные блочные отступы */
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding: 0 !important; /* Убираем внутренние отступы, если есть */
+  line-height: 1 !important; /* Чтобы высота строки не мешала */
+}
+
+/* Добавим небольшой отступ между звездами */
+.movie-card-rating > span:not(:last-child),
+.movie-card-rating > svg:not(:last-child) {
+  margin-right: 2px; /* Отступ между звездами */
+}
