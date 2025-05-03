@@ -406,6 +406,68 @@ def modify_rating(movie_id):
         db.session.commit()
         return jsonify({'message': 'Rating deleted', 'movieId': movie_id}), 200
 
+# --- Эндпоинты для управления списками фильмов ---
+
+# Получить все списки пользователя (кроме "favorites")
+@app.route('/api/lists', methods=['GET'])
+@jwt_required()
+def get_user_lists():
+    user_id = get_jwt_identity()
+    # Находим все списки пользователя, исключая список с именем 'favorites'
+    lists = List.query.filter_by(user_id=user_id).filter(List.name != 'favorites').all()
+    output = [{'id': lst.id, 'name': lst.name} for lst in lists]
+    return jsonify(output), 200
+
+# Создать новый список
+@app.route('/api/lists', methods=['POST'])
+@jwt_required()
+def create_list():
+    user_id = get_jwt_identity()
+    data = request.get_json()
+
+    if not data or not data.get('name'):
+        abort(400, description="Необхідно вказати ім'я списку ('name')")
+
+    list_name = data['name'].strip()
+    if not list_name:
+         abort(400, description="Ім'я списку не може бути порожнім")
+
+    # Запрещаем создавать 'favorites' вручную
+    if list_name.lower() == 'favorites':
+         abort(400, description="Список 'favorites' зарезервовано")
+
+    # Проверка на существование списка с таким же именем у пользователя
+    existing_list = List.query.filter_by(user_id=user_id, name=list_name).first()
+    if existing_list:
+        abort(409, description=f"Список з ім'ям '{list_name}' вже існує") # 409 Conflict
+
+    new_list = List(user_id=user_id, name=list_name)
+    db.session.add(new_list)
+    db.session.commit()
+
+    return jsonify({'id': new_list.id, 'name': new_list.name, 'message': 'Список створено'}), 201
+
+# Удалить список
+@app.route('/api/lists/<int:list_id>', methods=['DELETE'])
+@jwt_required()
+def delete_list(list_id):
+    user_id = get_jwt_identity()
+    list_to_delete = List.query.filter_by(id=list_id, user_id=user_id).first()
+
+    if not list_to_delete:
+        abort(404, description="Список не знайдено або у вас немає прав на його видалення")
+
+    # Запрещаем удаление списка 'favorites'
+    if list_to_delete.name.lower() == 'favorites':
+         abort(403, description="Список 'favorites' не можна видалити") # 403 Forbidden
+
+    db.session.delete(list_to_delete)
+    db.session.commit()
+
+    return jsonify({'message': f"Список '{list_to_delete.name}' видалено"}), 200
+
+# --- Конец эндпоинтов для списков ---
+
 # ── Run ─────────────────────────────────────────────────────────────
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
