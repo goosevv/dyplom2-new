@@ -224,6 +224,29 @@ def login():
     }), 200
 
 
+@app.route('/auth/profile', methods=['GET'])
+@jwt_required() # <--- Этот декоратор требует валидный JWT в заголовке Authorization
+def get_profile():
+    # Получаем ID пользователя из валидного токена
+    # Мы сохраняли user.id при создании токена в функции login
+    current_user_id = get_jwt_identity()
+
+    # Ищем пользователя в базе данных по ID
+    user = User.query.get(current_user_id)
+
+    if not user:
+        # На всякий случай, если пользователь был удален, а токен еще жив
+        return jsonify({"message": "User not found"}), 404
+
+    # Возвращаем основную информацию о пользователе (БЕЗ пароля!)
+    return jsonify({
+        'id': user.id,
+        'name': user.name,
+        'email': user.email
+        # Можно добавить другие поля при необходимости
+    }), 200
+
+# Убедитесь, что все импорты (User, jsonify, jwt_required, get_jwt_identity) на месте в начале файла.
 
 # ── Ratings endpoints ────────────────────────────────────────────────
 @app.route('/api/ratings', methods=['POST'])
