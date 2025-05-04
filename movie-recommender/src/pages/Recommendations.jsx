@@ -170,21 +170,29 @@ export default function Recommendations() {
   });
 
   return (
-    <Box minH="calc(100vh - 70px)" p={6}>
-      {error && (
-        <Alert status="error" mb={4}>
-          <AlertIcon /> {error}
-        </Alert>
-      )}
+      <Box
+        minH="calc(100vh - 70px)"
+        maxW="1200px"     // максимальная ширина страницы
+        mx="auto"         // центрирование по горизонтали
+        px={4}            // отступы слева-справа
+        py={6}            // отступы сверху-снизу
+      >
 
       {/* 1. Поисковая форма */}
       {!selectedMovie && (
         <VStack spacing={6} mb={8} align="stretch">
           <InputGroup maxW="800px" w="100%" mx="auto">
-            <InputLeftElement pointerEvents="none">
-              <SearchIcon color="gray.400" />
+            <InputLeftElement
+              pointerEvents="none"
+              left="4" // отступ от левого края
+              height="100%" // займёт всю высоту инпута
+              display="flex" // включаем флекс, чтобы выровнять по центру
+              alignItems="center" // центрируем по вертикали
+            >
+              <SearchIcon boxSize={5} color="gray.400" />
             </InputLeftElement>
             <Input
+              pl="3rem"
               placeholder="Введіть назву фільму"
               size="lg"
               value={query}
@@ -271,9 +279,9 @@ export default function Recommendations() {
           <Select
             placeholder="Рік"
             size="md"
-            minW="120px"
+            w={{ base: "100%", sm: "120px" }}  // на мобилах 100%, на большом экране 120px
             value={yearFilter}
-            onChange={(e) => setYearFilter(e.target.value)}>
+            onChange={e => setYearFilter(e.target.value)}>
             {Array.from({ length: 30 }).map((_, i) => {
               const y = 1990 + i;
               return (
@@ -286,9 +294,9 @@ export default function Recommendations() {
           <Select
             placeholder="Усі жанри"
             size="md"
-            minW="150px"
+            w={{ base: "100%", sm: "150px" }}
             value={genreFilter}
-            onChange={(e) => setGenreFilter(e.target.value)}
+            onChange={e => setGenreFilter(e.target.value)}
             isDisabled={availableGenres.length <= 1}>
             {availableGenres.map((genre) => (
               <option key={genre} value={genre}>
@@ -307,7 +315,7 @@ export default function Recommendations() {
           hasMore={displayed.length < recommendations.length}
           loader={<Spinner my={4} />}
           style={{ overflow: "visible" }}>
-          <SimpleGrid columns={[2, 3, 5, 6]} spacing={6}>
+          <SimpleGrid columns={[2, 3, 4, 4]} spacing={6}>
             {filtered.map((m) => (
               <MovieCard
                 key={m.movieId}

@@ -89,7 +89,7 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
       .then((res) => {
         if (isMounted) {
           const rec = res.data.find((r) => r.movieId === movie.movieId);
-          setUserRating(rec ? rec.rating : 0);
+          setUserRating(rec ? rec.score : 0);
         }
       }) // Используем .rating
       .catch((err) => console.error("Failed to fetch ratings:", err));
