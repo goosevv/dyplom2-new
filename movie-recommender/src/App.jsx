@@ -1,22 +1,29 @@
 // src/App.jsx
-import React, { useState, useEffect, useCallback } from 'react';
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import axios from 'axios';
-import { ChakraProvider, Box, Spinner, Center, extendTheme } from '@chakra-ui/react'; // Убедитесь, что все импорты есть
+import React, { useState, useEffect, useCallback } from "react";
+import { Routes, Route, Navigate, Outlet } from "react-router-dom";
+import axios from "axios";
+import {
+  ChakraProvider,
+  Box,
+  Spinner,
+  Center,
+  extendTheme,
+} from "@chakra-ui/react"; // Убедитесь, что все импорты есть
 
 // --- Импорт ваших страниц и компонентов ---
-import NavBar from './components/NavBar'; // Правильное имя NavBar
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Recommendations from './pages/Recommendations';
-import Favorites from './pages/Favorites';
-import Profile from './pages/Profile';
-import MyListsPage from './pages/MyListsPage'; // <<< Добавить импорт
-import ListPage from './pages/ListPage'; // <<< Добавить импорт
+import NavBar from "./components/NavBar"; // Правильное имя NavBar
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Recommendations from "./pages/Recommendations";
+import Favorites from "./pages/Favorites";
+import Profile from "./pages/Profile";
+import MyListsPage from "./pages/MyListsPage"; // <<< Добавить импорт
+import ListPage from "./pages/ListPage"; // <<< Добавить импорт
+import PublicListPage from "./pages/PublicListPage"; // <<< Добавить импорт
 // import MovieDetails from './pages/MovieDetails';
 // import NotFound from './pages/NotFound';
-import { LocaleContext } from './LocaleContext'; // Импорт контекста
+import { LocaleContext } from "./LocaleContext"; // Импорт контекста
 
 // Ваш компонент ProtectedRoute (перемещен внутрь или импортирован)
 function ProtectedRoute({ user }) {
@@ -28,14 +35,14 @@ function ProtectedRoute({ user }) {
 export default function App() {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [tmdbLang, setTmdbLang] = useState('uk'); // Пример из вашего старого кода
+  const [tmdbLang, setTmdbLang] = useState("uk"); // Пример из вашего старого кода
 
   // --- Функция для выхода пользователя ---
   const handleLogout = useCallback(() => {
     console.log("Logging out from App...");
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('user_id');
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("user_id");
     setUser(null);
   }, []);
 
@@ -54,7 +61,7 @@ export default function App() {
   // --- useEffect для проверки токена при загрузке ---
   useEffect(() => {
     const checkAuthStatus = async () => {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       console.log("App Mount: Checking auth status, token:", token);
 
       if (!token) {
@@ -65,14 +72,17 @@ export default function App() {
       }
 
       try {
-        const response = await axios.get('/auth/profile', {
+        const response = await axios.get("/auth/profile", {
           headers: { Authorization: `Bearer ${token}` },
         });
         console.log("App Mount: Token valid, user data:", response.data);
         // Вызываем handleLoginSuccess для консистентности установки состояния и localStorage
         handleLoginSuccess(response.data, token);
       } catch (error) {
-        console.error("App Mount: Token validation failed:", error.response?.data || error.message);
+        console.error(
+          "App Mount: Token validation failed:",
+          error.response?.data || error.message
+        );
         handleLogout(); // Токен невалиден - выходим
       } finally {
         setIsLoading(false);
@@ -91,7 +101,9 @@ export default function App() {
   // --- Отображение индикатора загрузки ---
   if (isLoading) {
     return (
-      <ChakraProvider> {/* Убедитесь, что провайдер есть */}
+      <ChakraProvider>
+        {" "}
+        {/* Убедитесь, что провайдер есть */}
         <Center h="100vh">
           <Spinner size="xl" />
         </Center>
@@ -101,47 +113,71 @@ export default function App() {
 
   // --- Основной рендеринг приложения ---
   return (
-    <ChakraProvider> {/* Убедитесь, что провайдер есть */}
+    <ChakraProvider>
+      {" "}
+      {/* Убедитесь, что провайдер есть */}
       <LocaleContext.Provider value={{ tmdbLang, setTmdbLang }}>
         {/* Оборачиваем в Router */}
 
-          {/* Передаем user и onLogout в NavBar */}
-          <NavBar user={user} onLogout={handleLogout} />
+        {/* Передаем user и onLogout в NavBar */}
+        <NavBar user={user} onLogout={handleLogout} />
 
-          {/* Задаем paddingTop через стили Box */}
-          {/* Можно добавить условие, если он не нужен на главной */}
-          <Box pt={{ base: "60px", md: "70px" }}> {/* Применяем отступ всегда для простоты */}
-            <Routes>
-              {/* Публичные маршруты */}
-              <Route path="/" element={<Home />} />
+        {/* Задаем paddingTop через стили Box */}
+        {/* Можно добавить условие, если он не нужен на главной */}
+        <Box pt={{ base: "60px", md: "70px" }}>
+          {" "}
+          {/* Применяем отступ всегда для простоты */}
+          <Routes>
+            {/* Публичные маршруты */}
+            <Route path="/" element={<Home />} />
 
-              {/* Логин: передаем onLoginSuccess */}
+            {/* Логин: передаем onLoginSuccess */}
+            <Route
+              path="/login"
+              element={
+                user ? (
+                  <Navigate to="/recommendations" replace />
+                ) : (
+                  <Login onLoginSuccess={handleLoginSuccess} />
+                )
+              }
+            />
+            {/* Регистрация */}
+            <Route
+              path="/register"
+              element={
+                user ? <Navigate to="/recommendations" replace /> : <Register />
+              }
+            />
+            {/* Новый публичный маршрут для просмотра списков */}
+            <Route path="/public/list/:listId" element={<PublicListPage />} />
+
+            {/* Приватные маршруты */}
+            <Route element={<ProtectedRoute user={user} />}>
+              <Route path="/recommendations" element={<Recommendations />} />
+              <Route path="/favorites" element={<Favorites />} />
               <Route
-                path="/login"
-                element={user ? <Navigate to="/recommendations" replace /> : <Login onLoginSuccess={handleLoginSuccess} />}
+                path="/profile"
+                element={<Profile user={user} onLogout={handleLogout} />}
               />
-              {/* Регистрация */}
-              <Route
-                path="/register"
-                element={user ? <Navigate to="/recommendations" replace /> : <Register />}
-              />
+              <Route path="/mylists" element={<MyListsPage />} />{" "}
+              {/* <<< Добавить этот маршрут */}
+              <Route path="/list/:listId" element={<ListPage />} />{" "}
+              {/* <<< Добавить динамический маршрут */}
+              {/* Другие приватные роуты */}
+              {/* <Route path="/movie/:id" element={<MovieDetails />} /> */}
+              {/* <Route path="/lists" element={<Lists />} /> */}
+            </Route>
 
-              {/* Приватные маршруты */}
-              <Route element={<ProtectedRoute user={user} />}>
-                <Route path="/recommendations" element={<Recommendations />} />
-                <Route path="/favorites" element={<Favorites />} />
-                <Route path="/profile" element={<Profile user={user} onLogout={handleLogout} />} />
-                <Route path="/mylists" element={<MyListsPage />} /> {/* <<< Добавить этот маршрут */}
-                <Route path="/list/:listId" element={<ListPage />} /> {/* <<< Добавить динамический маршрут */}
-                {/* Другие приватные роуты */}
-                 {/* <Route path="/movie/:id" element={<MovieDetails />} /> */}
-                 {/* <Route path="/lists" element={<Lists />} /> */}
-              </Route>
-
-              {/* Маршрут по умолчанию */}
-              <Route path="*" element={<Navigate to={user ? "/recommendations" : "/"} replace />} />
-            </Routes>
-          </Box>
+            {/* Маршрут по умолчанию */}
+            <Route
+              path="*"
+              element={
+                <Navigate to={user ? "/recommendations" : "/"} replace />
+              }
+            />
+          </Routes>
+        </Box>
       </LocaleContext.Provider>
     </ChakraProvider>
   );
