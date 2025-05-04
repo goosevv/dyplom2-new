@@ -14,7 +14,6 @@ import {
   Spinner,
   Alert,
   AlertIcon,
-  useColorModeValue,
   useDisclosure,
 } from "@chakra-ui/react";
 import { SearchIcon } from "@chakra-ui/icons";
@@ -25,8 +24,6 @@ import { LocaleContext } from "../LocaleContext";
 
 export default function Recommendations() {
   const { tmdbLang } = useContext(LocaleContext);
-  const bg = useColorModeValue("gray.50", "gray.800");
-  const fg = useColorModeValue("gray.800", "white");
 
   // 1) Поиск
   const [query, setQuery] = useState("");
@@ -52,6 +49,9 @@ export default function Recommendations() {
   // 6) Статусы
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const [genreFilter, setGenreFilter] = useState("");
+  const [availableGenres, setAvailableGenres] = useState([]); // Для опцій у Select
 
   // Поиск
   const handleSearch = async () => {
@@ -93,7 +93,34 @@ export default function Recommendations() {
       );
       setRecommendations(res.data);
       setDisplayed(res.data.slice(0, PAGE_SIZE));
+      // ---> ВСТАВТЕ КОД ДЛЯ ЗБОРУ ЖАНРІВ ТУТ <---
+      const allGenres = res.data.reduce((acc, movie) => {
+        // Перевіряємо, чи є поле 'genres' і чи це рядок
+        if (movie.genres && typeof movie.genres === "string") {
+          // Розділяємо рядок по '|', очищаємо пробіли, додаємо в Set
+          movie.genres.split("|").forEach((genre) => {
+            const trimmedGenre = genre.trim();
+            // Додаємо, якщо не порожній і не є заглушкою
+            if (
+              trimmedGenre &&
+              trimmedGenre.toLowerCase() !== "(no genres listed)"
+            ) {
+              acc.add(trimmedGenre);
+            }
+          });
+        }
+        // Якщо ваш API може повертати жанри як масив рядків, додайте обробку:
+        // else if (Array.isArray(movie.genres)) {
+        //   movie.genres.forEach(genre => { ... });
+        // }
+        return acc;
+      }, new Set()); // Використовуємо Set для унікальних значень
+
+      // Встановлюємо відсортований масив жанрів у стан (додаємо порожній рядок для опції "Всі жанри")
+      setAvailableGenres(["", ...Array.from(allGenres).sort()]);
+      // ---> КІНЕЦЬ ВСТАВЛЕНОГО КОДУ <---
     } catch {
+      console.error("Помилка завантаження рекомендацій:", err); // Додаємо лог помилки
       setError("Не вдалося завантажити рекомендації.");
     } finally {
       setLoading(false);
@@ -121,15 +148,29 @@ export default function Recommendations() {
     setError(null);
   };
 
-  // Фильтр по году
   const filtered = displayed.filter((m) => {
-    if (!yearFilter) return true;
-    const year = m.title.match(/\((\d{4})\)/)?.[1];
-    return year === yearFilter;
+    const yearMatch =
+      !yearFilter || m.title.match(/\((\d{4})\)/)?.[1] === yearFilter;
+
+    // Логіка фільтрації по жанру (припускаючи, що m.genres - це рядок "Genre1|Genre2")
+    const movieGenresString =
+      m.genres && typeof m.genres === "string" ? m.genres.toLowerCase() : "";
+    const genreMatch =
+      !genreFilter ||
+      movieGenresString
+        .split("|")
+        .map((g) => g.trim())
+        .includes(genreFilter.toLowerCase());
+
+    // Альтернатива, якщо API повертає масив жанрів:
+    // const movieGenresArray = Array.isArray(m.genres) ? m.genres.map(g=>g.toLowerCase()) : [];
+    // const genreMatch = !genreFilter || movieGenresArray.includes(genreFilter.toLowerCase());
+
+    return yearMatch && genreMatch;
   });
 
   return (
-    <Box bg={bg} color={fg} minH="100vh" p={6}>
+    <Box minH="calc(100vh - 70px)" p={6}>
       {error && (
         <Alert status="error" mb={4}>
           <AlertIcon /> {error}
@@ -149,22 +190,26 @@ export default function Recommendations() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-              bg={useColorModeValue("white", "gray.700")}
+              bg="whiteAlpha.100" // Полупрозрачный фон для темной темы
+              borderColor="whiteAlpha.300" // Граница
+              _hover={{ borderColor: "whiteAlpha.400" }}
+              focusBorderColor="brand.gold" // Золотая рамка при фокусе
+              _placeholder={{ color: "gray.500" }} // Цвет плейсхолдера
               borderRadius="lg"
-              _focus={{
-                boxShadow:
-                  "0 0 0 2px " + useColorModeValue("blue.300", "blue.600"),
-                borderColor: useColorModeValue("blue.300", "blue.600"),
-              }}
+              // Убрали стандартные _focus стили, т.к. есть focusBorderColor
             />
           </InputGroup>
           <Box textAlign="center">
             <Button
-              colorScheme="blue"
               size="md"
               onClick={handleSearch}
               isLoading={loading}
-              px={8}>
+              px={8}
+              // Стилизуем кнопку:
+              bg="brand.gold" // Золотой фон
+              color="brand.purple" // Фиолетовый текст (или 'gray.900' для лучшего контраста)
+              _hover={{ bg: "yellow.500" }} // Чуть темнее золото при наведении (можно добавить brand.goldHover в тему)
+            >
               Знайти
             </Button>
           </Box>
@@ -237,6 +282,19 @@ export default function Recommendations() {
                 </option>
               );
             })}
+          </Select>
+          <Select
+            placeholder="Усі жанри"
+            size="md"
+            minW="150px"
+            value={genreFilter}
+            onChange={(e) => setGenreFilter(e.target.value)}
+            isDisabled={availableGenres.length <= 1}>
+            {availableGenres.map((genre) => (
+              <option key={genre} value={genre}>
+                {genre || "Усі жанри"}
+              </option>
+            ))}
           </Select>
         </Flex>
       )}

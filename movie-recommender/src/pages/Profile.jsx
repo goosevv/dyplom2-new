@@ -2,146 +2,106 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import {
-  Box,
-  Heading,
-  Text,
-  Button,
-  VStack,
-  Alert,
-  AlertIcon,
-  Spinner,
-  useColorModeValue,
-  List,
-  ListItem,
-  Center // Импортируем Center для спиннера
+  Box, Heading, Text, Button, VStack, Alert, AlertIcon, Spinner, List, ListItem, Center, Divider
+  // useColorModeValue убран
 } from "@chakra-ui/react";
-// useNavigate больше не нужен здесь для выхода и проверки
-// import { useNavigate } from "react-router-dom";
-// authHeaders тоже не нужен, если используем токен напрямую
-// import { authHeaders } from "../config";
 
-// Компонент теперь принимает user и onLogout из App.jsx
 export default function Profile({ user, onLogout }) {
-  // Убираем локальное состояние user, используем проп
-  // const navigate = useNavigate(); // Убираем
-  // const [user, setUser] = useState(null); // Убираем
-
-  const [favs, setFavs] = useState(null); // Оставляем состояние для избранного
-  const [loadingFavs, setLoadingFavs] = useState(true); // Состояние загрузки избранного
+  const [favs, setFavs] = useState(null);
+  const [loadingFavs, setLoadingFavs] = useState(true);
   const [error, setError] = useState(null);
 
-  // Стили фона
-  const bg = useColorModeValue("gray.100", "gray.800"); // Фон для всей страницы
-  const cardBg = useColorModeValue("white", "gray.700"); // Фон для карточки профиля
+  // const bg = useColorModeValue("gray.100", "gray.800"); // Убрано
+  const cardBg = "whiteAlpha.100"; // Полупрозрачный фон для карточки
 
   useEffect(() => {
-    // Убираем проверку токена и пользователя из localStorage - ProtectedRoute уже это сделал
-    // if (!token || !u) { navigate("/login"); return; }
-    // setUser(u); // Используем user из пропсов
-
-    // Загружаем избранное, только если проп user существует
     if (user) {
-      const token = localStorage.getItem("token"); // Токен все еще нужен для запроса
-      if (!token) { // Доп. проверка на случай рассинхрона
+      const token = localStorage.getItem("token");
+      if (!token) {
           setError("Помилка аутентифікації для завантаження улюблених.");
           setLoadingFavs(false);
-          setFavs([]); // Устанавливаем пустой массив
+          setFavs([]);
           return;
       }
       setLoadingFavs(true);
-      setError(null); // Сбрасываем ошибку перед запросом
+      setError(null);
       axios
         .get("/api/recommend/user/favorites", {
           headers: { Authorization: `Bearer ${token}` }
         })
-        .then((res) => {
-          setFavs(res.data);
-        })
+        .then((res) => { setFavs(res.data); })
         .catch(() => {
           setError("Не вдалося завантажити улюблені фільми.");
-          setFavs([]); // Устанавливаем пустой массив при ошибке
+          setFavs([]);
         })
-        .finally(() => {
-          setLoadingFavs(false);
-        });
+        .finally(() => { setLoadingFavs(false); });
     } else {
-        // Если пользователя нет (теоретически не должно случиться из-за ProtectedRoute)
         setLoadingFavs(false);
         setFavs([]);
     }
-  // Зависимость от user (или user.id), чтобы перезагрузить данные при его изменении
-  // Но т.к. user передается из App, изменение будет при смене пользователя (логаут/логин)
   }, [user]);
 
-  // Убираем локальную функцию handleLogout
-  // const handleLogout = () => { ... };
-
-  // Если user еще null (хотя ProtectedRoute должен это предотвратить),
-  // показываем загрузчик на всю страницу
   if (!user) {
     return (
-      <Center h="calc(100vh - 70px)"> {/* Занимаем доступную высоту */}
-        <Spinner size="xl" />
+      <Center h="calc(100vh - 70px)">
+        <Spinner size="xl" color="brand.gold"/>
       </Center>
     );
   }
 
-  // Основной рендеринг, когда user точно есть
   return (
-    <Box bg={bg} minH="calc(100vh - 70px)" py={10} px={4}>
+    // Используем Box без явного bg, т.к. фон глобальный
+    <Box minH="calc(100vh - 70px)" py={10} px={4}>
       <Box
-        maxW="lg"
-        mx="auto"
-        p={8}
-        bg={cardBg}
-        borderWidth="1px"
-        borderRadius="lg"
-        boxShadow="lg"
+        maxW="lg" mx="auto"
+        p={8} bg={cardBg} borderWidth="1px" borderColor="whiteAlpha.200" // Добавили рамку
+        borderRadius="xl" boxShadow="lg" // Увеличили скругление
       >
-        <VStack spacing={6} align="start" w="100%">
-          <Heading as="h1" size="lg">Профіль користувача</Heading>
+        <VStack spacing={6} align="stretch" w="100%"> {/* align="stretch" */}
+          <Heading as="h1" size="xl" color="brand.gold" textAlign="center" mb={4}> {/* Золотой заголовок */}
+            Профіль користувача
+          </Heading>
 
-          {/* Информация о пользователе из пропа user */}
-          <Box>
+          {/* Информация о пользователе */}
+          <VStack spacing={1} align="start" w="100%" bg="whiteAlpha.50" p={4} borderRadius="md"> {/* Фон для блока инфо */}
             <Text fontSize="lg">
               <b>Ім’я:</b> {user.name}
             </Text>
+            <Divider my={1}/> {/* Разделитель */}
             <Text fontSize="lg">
-              <b>Електронна пошта:</b> {user.email}
+              <b>Email:</b> {user.email}
             </Text>
-            <Text fontSize="sm" color="gray.500">
-              User ID: {user.id} {/* Можно показывать ID для отладки */}
+             <Text fontSize="sm" color="gray.500" pt={1}>
+              User ID: {user.id}
             </Text>
-          </Box>
+          </VStack>
 
-          <Heading size="md" mt={4} borderBottomWidth="1px" pb={2} w="100%">
+          <Heading size="lg" mt={4} pb={2} w="100%" borderBottomWidth="1px" borderColor="brand.gold"> {/* Золотой подзаголовок */}
             Улюблені фільми
           </Heading>
 
-          {/* Отображение ошибок */}
           {error && (
-            <Alert status="error" borderRadius="md">
+            <Alert status="error" borderRadius="md" variant="subtle">
               <AlertIcon /> {error}
             </Alert>
           )}
 
-          {/* Отображение избранного */}
           {loadingFavs ? (
-            <Spinner size="md" />
+            <Center><Spinner size="md" color="brand.gold" /></Center>
           ) : favs && favs.length === 0 ? (
-            <Text>Список улюблених фільмів порожній.</Text>
+            <Text color="gray.400">Список улюблених фільмів порожній.</Text>
           ) : favs && favs.length > 0 ? (
-            <List spacing={2} w="100%">
+            <List spacing={2} w="100%" pl={4}> {/* Добавили отступ слева для маркеров */}
               {favs.map((m) => (
-                <ListItem key={m.movieId}>• {m.title}</ListItem>
+                <ListItem key={m.movieId}> {m.title} </ListItem> // Убрали маркер, т.к. он может быть не виден
               ))}
             </List>
           ) : (
-            !error && <Text>Не вдалося завантажити список.</Text> // Если не грузится и не ошибка
+            !error && <Text color="gray.400">Не вдалося завантажити список.</Text>
           )}
 
-          {/* Кнопка выхода теперь вызывает onLogout из пропсов */}
-          <Button colorScheme="red" variant="outline" onClick={onLogout} mt={6} alignSelf="flex-start">
+          {/* Кнопка выхода */}
+          <Button colorScheme="red" variant="outline" onClick={onLogout} mt={6} alignSelf="center"> {/* Центрируем кнопку */}
             Вийти з профілю
           </Button>
         </VStack>
