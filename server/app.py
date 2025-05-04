@@ -468,6 +468,124 @@ def delete_list(list_id):
 
 # --- Конец эндпоинтов для списков ---
 
+# Получить детали конкретного списка (включая фильмы)
+@app.route('/api/lists/<int:list_id>', methods=['GET']) # <<< Важно: methods=['GET']
+@jwt_required()
+def get_list_details(list_id):
+    user_id = get_jwt_identity()
+
+    # Находим список по ID и ID пользователя
+    target_list = List.query.filter_by(id=list_id, user_id=user_id).first()
+
+    if not target_list:
+        abort(404, description="Список не знайдено або у вас немає прав")
+
+    # --- Добавим проверку, чтобы не показывать содержимое 'favorites' через этот эндпоинт ---
+    # Если хотите разрешить просмотр favorites здесь, уберите эту проверку
+    if target_list.name.lower() == 'favorites':
+         abort(403, description="Для перегляду 'Улюблених' використовуйте відповідний розділ") # 403 Forbidden
+    # --- Конец проверки ---
+
+
+    # Собираем информацию о фильмах в этом списке
+    movies_in_list = []
+    # Итерируемся по записям ListMovie, связанным с этим списком
+    # Предполагаем, что в модели List есть relationship 'movies' к ListMovie
+    for list_movie_entry in target_list.movies:
+        # Находим соответствующий фильм в таблице Movie
+        movie = Movie.query.get(list_movie_entry.movie_id)
+        if movie:
+            # Добавляем информацию о фильме в результат
+            movies_in_list.append({
+                'movieId': movie.movie_id,
+                'title': movie.title
+                # Можно добавить и другие поля фильма при необходимости
+            })
+
+    # Возвращаем информацию о списке и содержащихся в нем фильмах
+    return jsonify({
+        'id': target_list.id,
+        'name': target_list.name,
+        'movies': movies_in_list
+    }), 200
+
+# --- Конец эндпоинта получения деталей списка ---
+
+# Добавить фильм в конкретный список
+@app.route('/api/lists/<int:list_id>/movies', methods=['POST'])
+@jwt_required()
+def add_movie_to_list(list_id):
+    user_id = get_jwt_identity()
+    data = request.get_json()
+
+    # Проверка наличия movieId в запросе
+    if not data or not data.get('movieId'):
+        abort(400, description="Необхідно вказати ID фільму ('movieId')")
+
+    movie_id = data['movieId']
+
+    # Проверяем, существует ли список и принадлежит ли он пользователю
+    target_list = List.query.filter_by(id=list_id, user_id=user_id).first()
+    if not target_list:
+        abort(404, description="Список не знайдено або у вас немає прав")
+
+    # Запрещаем добавление в 'favorites' через этот эндпоинт (используйте /api/recommend/user/favorites)
+    if target_list.name.lower() == 'favorites':
+        abort(403, description="Для додавання в 'Улюблені' використовуйте інший метод") # 403 Forbidden
+
+    # Проверяем, существует ли фильм в нашей общей таблице фильмов
+    movie = Movie.query.get(movie_id)
+    if not movie:
+        # Если фильма нет в БД, его нельзя добавить в список
+        # В реальном приложении здесь можно было бы попытаться добавить фильм в Movie, если его нет
+        abort(404, description="Фільм з таким ID не знайдено в базі даних")
+
+    # Проверяем, нет ли уже этого фильма в этом конкретном списке
+    exists = ListMovie.query.filter_by(list_id=list_id, movie_id=movie_id).first()
+    if exists:
+        # Фильм уже в списке, сообщаем об этом
+        return jsonify({'message': 'Фільм вже є у цьому списку'}), 200 # Код 200 или 409 (Conflict)
+
+    # Создаем связь фильма со списком
+    new_link = ListMovie(list_id=list_id, movie_id=movie_id)
+    db.session.add(new_link)
+    db.session.commit()
+
+    return jsonify({'message': f"Фільм '{movie.title}' додано до списку '{target_list.name}'"}), 201
+
+# --- Конец эндпоинта добавления фильма в список ---
+
+# Удалить фильм из конкретного списка
+@app.route('/api/lists/<int:list_id>/movies/<int:movie_id>', methods=['DELETE'])
+@jwt_required()
+def remove_movie_from_list(list_id, movie_id):
+    user_id = get_jwt_identity()
+
+    # Проверяем, существует ли список и принадлежит ли он пользователю
+    target_list = List.query.filter_by(id=list_id, user_id=user_id).first()
+    if not target_list:
+        abort(404, description="Список не знайдено або у вас немає прав")
+
+    # Запрещаем удаление из 'favorites' через этот эндпоинт
+    if target_list.name.lower() == 'favorites':
+        abort(403, description="Для видалення з 'Улюблених' використовуйте інший метод")
+
+    # Находим связь фильма со списком, которую нужно удалить
+    link_to_delete = ListMovie.query.filter_by(list_id=list_id, movie_id=movie_id).first()
+
+    # Если связи нет (фильма нет в этом списке), сообщаем об этом
+    if not link_to_delete:
+        abort(404, description="Фільм не знайдено у цьому списку")
+
+    # Удаляем связь
+    db.session.delete(link_to_delete)
+    db.session.commit()
+
+    return jsonify({'message': f"Фільм (ID: {movie_id}) видалено зі списку '{target_list.name}'"}), 200
+
+# --- Конец эндпоинта удаления фильма из списка ---
+
+
 # ── Run ─────────────────────────────────────────────────────────────
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

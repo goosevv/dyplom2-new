@@ -14,25 +14,34 @@ import {
   Spinner,
   Alert,
   AlertIcon,
-  useToast, // Для уведомлений
-  useColorModeValue,
+  useToast,
+  useColorModeValue, // <<< Оставляем импорт
   Text,
-  Flex, // Для размещения элементов в строке
-  Spacer, // Для расталкивания элементов
-  Center, // Для центрирования спиннера
+  Flex,
+  Link,
+  Spacer,
+  Center,
 } from "@chakra-ui/react";
-import { DeleteIcon } from "@chakra-ui/icons"; // Иконка для удаления
-
+import { DeleteIcon } from "@chakra-ui/icons";
+import { Link as RouterLink } from "react-router-dom"; // <<< Добавить импорт
 export default function MyListsPage() {
+  // --- Начало блока хуков ---
   const [lists, setLists] = useState([]);
   const [newListName, setNewListName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreating, setIsCreating] = useState(false); // Состояние для загрузки создания
-  const [deletingId, setDeletingId] = useState(null); // ID списка, который удаляется
+  const [isCreating, setIsCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState(null);
-  const toast = useToast(); // Хук для всплывающих уведомлений
+  const toast = useToast();
+
+  // Все useColorModeValue вызываем ЗДЕСЬ, наверху
   const bg = useColorModeValue("gray.100", "gray.800");
   const cardBg = useColorModeValue("white", "gray.700");
+  // Добавляем переменные для цветов, которые использовались внутри JSX
+  const emptyListTextColor = useColorModeValue("gray.600", "gray.400");
+  const listItemBg = useColorModeValue("white", "gray.700");
+  const listItemHoverBg = useColorModeValue("gray.50", "gray.600");
+  // --- Конец блока хуков ---
 
   // Функция для загрузки списков
   const fetchLists = useCallback(async () => {
@@ -40,7 +49,6 @@ export default function MyListsPage() {
     setError(null);
     const token = localStorage.getItem("token");
     if (!token) {
-      // Эта проверка избыточна из-за ProtectedRoute, но оставим на всякий случай
       setError("Помилка аутентифікації.");
       setIsLoading(false);
       setLists([]);
@@ -53,19 +61,19 @@ export default function MyListsPage() {
       setLists(response.data);
     } catch (err) {
       setError("Не вдалося завантажити списки.");
-      setLists([]); // Устанавливаем пустой массив при ошибке
+      setLists([]);
       console.error("Fetch lists error:", err.response?.data || err);
     } finally {
       setIsLoading(false);
     }
-  }, []); // Пустой массив зависимостей, т.к. токен берется из localStorage
+  }, []);
 
-  // Загружаем списки при монтировании компонента
+  // Загружаем списки при монтировании
   useEffect(() => {
     fetchLists();
   }, [fetchLists]);
 
-  // Обработчик создания нового списка
+  // Обработчик создания
   const handleCreateList = async (e) => {
     e.preventDefault();
     if (!newListName.trim()) {
@@ -87,9 +95,8 @@ export default function MyListsPage() {
         { name: newListName.trim() },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      // Добавляем новый список в начало массива в состоянии
       setLists((prevLists) => [response.data, ...prevLists]);
-      setNewListName(""); // Очищаем поле ввода
+      setNewListName("");
       toast({
         title: `Список "${response.data.name}" створено.`,
         status: "success",
@@ -101,7 +108,7 @@ export default function MyListsPage() {
         err.response?.data?.description ||
         err.response?.data?.message ||
         "Не вдалося створити список.";
-      setError(errorMsg); // Отображаем ошибку на странице
+      setError(errorMsg);
       toast({
         title: "Помилка створення списку",
         description: errorMsg,
@@ -115,9 +122,8 @@ export default function MyListsPage() {
     }
   };
 
-  // Обработчик удаления списка
+  // Обработчик удаления
   const handleDeleteList = async (listId, listName) => {
-    // Можно добавить окно подтверждения
     if (
       !window.confirm(
         `Ви впевнені, що хочете видалити список "${listName}"? Це видалить усі фільми в ньому.`
@@ -125,8 +131,7 @@ export default function MyListsPage() {
     ) {
       return;
     }
-
-    setDeletingId(listId); // Устанавливаем ID удаляемого списка для индикации загрузки
+    setDeletingId(listId);
     setError(null);
     const token = localStorage.getItem("token");
 
@@ -134,7 +139,6 @@ export default function MyListsPage() {
       await axios.delete(`/api/lists/${listId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Удаляем список из состояния после успешного ответа сервера
       setLists((prevLists) => prevLists.filter((list) => list.id !== listId));
       toast({
         title: `Список "${listName}" видалено.`,
@@ -157,10 +161,11 @@ export default function MyListsPage() {
       });
       console.error("Delete list error:", err.response?.data || err);
     } finally {
-      setDeletingId(null); // Сбрасываем ID удаляемого списка
+      setDeletingId(null);
     }
   };
 
+  // --- Начало основного рендеринга ---
   return (
     <Box bg={bg} minH="calc(100vh - 70px)" py={10} px={4}>
       <Box
@@ -174,45 +179,46 @@ export default function MyListsPage() {
           Мої списки фільмів
         </Heading>
 
-        {/* Форма создания нового списка */}
+        {/* Форма создания */}
         <form onSubmit={handleCreateList}>
           <HStack mb={6}>
             <Input
               placeholder="Назва нового списку"
               value={newListName}
               onChange={(e) => setNewListName(e.target.value)}
-              isDisabled={isCreating} // Блокируем поле во время создания
+              isDisabled={isCreating}
             />
             <Button
               type="submit"
               colorScheme="teal"
-              isLoading={isCreating} // Показываем спиннер на кнопке
-              loadingText="Створення..." // Текст во время загрузки
+              isLoading={isCreating}
+              loadingText="Створення..."
               px={6}>
               Створити
             </Button>
           </HStack>
         </form>
 
-        {/* Отображение общей ошибки загрузки */}
-        {error &&
-          !isLoading && ( // Показываем только если не идет общая загрузка
-            <Alert status="error" mb={4} borderRadius="md">
-              <AlertIcon />
-              {error}
-            </Alert>
-          )}
+        {/* Ошибка */}
+        {error && !isLoading && (
+          <Alert status="error" mb={4} borderRadius="md">
+            <AlertIcon />
+            {error}
+          </Alert>
+        )}
 
-        {/* Отображение списков */}
+        {/* Списки */}
         <Heading as="h2" size="md" mb={4} mt={8}>
           Існуючі списки:
         </Heading>
         {isLoading ? (
           <Center py={10}>
-            <Spinner />
+            {" "}
+            <Spinner />{" "}
           </Center>
         ) : lists.length === 0 ? (
-          <Text color={useColorModeValue("gray.600", "gray.400")}>
+          // Используем переменную emptyListTextColor
+          <Text color={emptyListTextColor}>
             У вас ще немає створених користувацьких списків.
           </Text>
         ) : (
@@ -223,15 +229,21 @@ export default function MyListsPage() {
                 p={3}
                 borderWidth="1px"
                 borderRadius="md"
-                bg={useColorModeValue("white", "gray.700")} // Фон элемента списка
-                _hover={{ bg: useColorModeValue("gray.50", "gray.600") }}>
+                // Используем переменные listItemBg и listItemHoverBg
+                bg={listItemBg}
+                _hover={{ bg: listItemHoverBg }}>
                 <Flex align="center">
-                  {/* TODO: Сделать имя ссылкой на /list/{list.id} */}
-                  <Text fontWeight="medium" flexGrow={1} mr={2}>
-                    {list.name}
-                  </Text>
-                  {/* <Spacer /> */}{" "}
-                  {/* Spacer может быть не нужен, если имя растягивается */}
+                  <Link
+                    as={RouterLink}
+                    to={`/list/${list.id}`}
+                    flexGrow={1}
+                    mr={2}
+                    _hover={{ textDecoration: "underline" }}>
+                    <Text fontWeight="medium" flexGrow={1} mr={2}>
+                      {" "}
+                      {list.name}{" "}
+                    </Text>
+                  </Link>
                   <IconButton
                     aria-label={`Видалити список ${list.name}`}
                     icon={<DeleteIcon />}
@@ -239,8 +251,8 @@ export default function MyListsPage() {
                     colorScheme="red"
                     variant="ghost"
                     onClick={() => handleDeleteList(list.id, list.name)}
-                    isLoading={deletingId === list.id} // Показываем спиннер на конкретной кнопке
-                    isDisabled={deletingId !== null} // Блокируем другие кнопки удаления во время процесса
+                    isLoading={deletingId === list.id}
+                    isDisabled={deletingId !== null}
                   />
                 </Flex>
               </ListItem>
