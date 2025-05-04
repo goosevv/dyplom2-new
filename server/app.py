@@ -415,9 +415,9 @@ def modify_rating(movie_id):
 @jwt_required()
 def get_user_lists():
     user_id = get_jwt_identity()
-    # Находим все списки пользователя, исключая список с именем 'favorites'
     lists = List.query.filter_by(user_id=user_id).filter(List.name != 'favorites').all()
-    output = [{'id': lst.id, 'name': lst.name} for lst in lists]
+    # Теперь возвращаем и is_public
+    output = [{'id': lst.id, 'name': lst.name, 'is_public': lst.is_public} for lst in lists]
     return jsonify(output), 200
 
 # Создать новый список
@@ -518,45 +518,69 @@ def rename_list(list_id):
 # --- Конец эндпоинта переименования списка ---
 
 # Получить детали конкретного списка (включая фильмы)
-@app.route('/api/lists/<int:list_id>', methods=['GET']) # <<< Важно: methods=['GET']
-@jwt_required()
+@app.route('/api/lists/<int:list_id>', methods=['GET'])
+@jwt_required(optional=True) # Делаем JWT опциональным, чтобы и анонимы могли смотреть публичные
 def get_list_details(list_id):
-    user_id = get_jwt_identity()
+    current_user_id = get_jwt_identity() # Будет None, если нет валидного токена
 
-    # Находим список по ID и ID пользователя
-    target_list = List.query.filter_by(id=list_id, user_id=user_id).first()
+    target_list = List.query.get_or_404(list_id) # Используем get_or_404 для краткости
 
-    if not target_list:
-        abort(404, description="Список не знайдено або у вас немає прав")
+    # Проверка доступа
+    is_owner = str(target_list.user_id) == str(current_user_id) # Сравниваем как строки на всякий случай
 
-    # --- Добавим проверку, чтобы не показывать содержимое 'favorites' через этот эндпоинт ---
-    # Если хотите разрешить просмотр favorites здесь, уберите эту проверку
-    if target_list.name.lower() == 'favorites':
-         abort(403, description="Для перегляду 'Улюблених' використовуйте відповідний розділ") # 403 Forbidden
-    # --- Конец проверки ---
+    if not is_owner and not target_list.is_public:
+        # Если не владелец И список не публичный - доступ запрещен
+        abort(404, description="Список не знайдено або він є приватним") # Можно 403, но 404 скрывает существование
 
+    # Запрещаем просмотр 'favorites' через этот эндпоинт, если не владелец
+    if target_list.name.lower() == 'favorites' and not is_owner:
+         abort(404, description="Список 'favorites' є приватним")
 
-    # Собираем информацию о фильмах в этом списке
+    # Собираем фильмы (как и раньше)
     movies_in_list = []
-    # Итерируемся по записям ListMovie, связанным с этим списком
-    # Предполагаем, что в модели List есть relationship 'movies' к ListMovie
     for list_movie_entry in target_list.movies:
-        # Находим соответствующий фильм в таблице Movie
         movie = Movie.query.get(list_movie_entry.movie_id)
         if movie:
-            # Добавляем информацию о фильме в результат
             movies_in_list.append({
                 'movieId': movie.movie_id,
                 'title': movie.title
-                # Можно добавить и другие поля фильма при необходимости
             })
 
-    # Возвращаем информацию о списке и содержащихся в нем фильмах
+    # Возвращаем данные
     return jsonify({
         'id': target_list.id,
         'name': target_list.name,
+        'is_public': target_list.is_public, # Возвращаем статус публичности
         'movies': movies_in_list
     }), 200
+
+# Добавьте ЭТУ НОВУЮ функцию (например, после get_list_details)
+@app.route('/api/lists/<int:list_id>/share', methods=['PUT'])
+@jwt_required()
+def toggle_list_public_status(list_id):
+    user_id = get_jwt_identity()
+
+    # Находим список по ID и ID пользователя
+    list_to_toggle = List.query.filter_by(id=list_id, user_id=user_id).first()
+
+    if not list_to_toggle:
+        abort(404, description="Список не знайдено або у вас немає прав")
+
+    # Запрещаем делать публичным 'favorites'
+    if list_to_toggle.name.lower() == 'favorites':
+        abort(403, description="Список 'favorites' не може бути публічним")
+
+    # Переключаем статус is_public
+    list_to_toggle.is_public = not list_to_toggle.is_public
+    db.session.commit()
+
+    new_status = "публічним" if list_to_toggle.is_public else "приватним"
+    return jsonify({
+        'message': f"Статус списку '{list_to_toggle.name}' змінено на '{new_status}'.",
+        'id': list_to_toggle.id,
+        'name': list_to_toggle.name,
+        'is_public': list_to_toggle.is_public # Возвращаем новый статус
+        }), 200
 
 # Эндпоинт для получения рекомендаций на основе списка
 @app.route('/api/recommend/list/<int:list_id>', methods=['GET'])

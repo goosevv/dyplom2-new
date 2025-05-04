@@ -21,10 +21,19 @@ import {
   Link,
   Spacer,
   Center,
-  useDisclosure, // <<< Добавить для модалки редактирования
+  Icon,
+  useDisclosure,
+  Tooltip // <<< Добавить для модалки редактирования
 } from "@chakra-ui/react";
-import { DeleteIcon, EditIcon } from "@chakra-ui/icons"; // <<< Добавить EditIcon
+import {
+  DeleteIcon,
+  EditIcon,
+  LockIcon,
+  UnlockIcon,
+  LinkIcon,
+} from "@chakra-ui/icons"; // <<< Добавляем иконки
 import RenameListModal from "../components/RenameListModal"; // <<< Импорт модалки
+import ShareListModal from "../components/ShareListModal";
 import { Link as RouterLink } from "react-router-dom"; // <<< Добавить импорт
 
 export default function MyListsPage() {
@@ -43,6 +52,14 @@ export default function MyListsPage() {
     onClose: onRenameModalClose,
   } = useDisclosure();
   const [editingList, setEditingList] = useState(null); // Список, который редактируется
+  // Состояние для модалки шаринга
+  const {
+    isOpen: isShareModalOpen,
+    onOpen: onShareModalOpen,
+    onClose: onShareModalClose,
+  } = useDisclosure();
+  const [sharingList, setSharingList] = useState(null); // Список для шаринга
+
   const [renameValue, setRenameValue] = useState(""); // Значение в поле ввода модалки
   // Все useColorModeValue вызываем ЗДЕСЬ, наверху
   const bg = useColorModeValue("gray.100", "gray.800");
@@ -190,6 +207,24 @@ export default function MyListsPage() {
     );
   };
 
+  // --- Обработчик открытия модалки шаринга ---
+  const handleOpenShareModal = (list) => {
+    setSharingList(list); // Запоминаем список для шаринга
+    onShareModalOpen(); // Открываем модалку
+  };
+
+  // --- Обработчик после изменения статуса шаринга ---
+  const handleListShareStatusChanged = (updatedList) => {
+    // Обновляем статус is_public в нашем общем состоянии lists
+    setLists((prevLists) =>
+      prevLists.map((list) =>
+        list.id === updatedList.id
+          ? { ...list, is_public: updatedList.is_public }
+          : list
+      )
+    );
+  };
+
   // --- Начало основного рендеринга ---
   return (
     <Box bg={bg} minH="calc(100vh - 70px)" py={10} px={4}>
@@ -258,6 +293,17 @@ export default function MyListsPage() {
                 bg={listItemBg}
                 _hover={{ bg: listItemHoverBg }}>
                 <Flex align="center">
+                  {/* Иконка статуса */}
+                  <Tooltip
+                    label={list.is_public ? "Публічний" : "Приватний"}
+                    placement="top"
+                    hasArrow>
+                    <Icon
+                      as={list.is_public ? UnlockIcon : LockIcon}
+                      mr={3}
+                      color={list.is_public ? "green.500" : "gray.500"}
+                    />
+                  </Tooltip>
                   <Link
                     as={RouterLink}
                     to={`/list/${list.id}`}
@@ -270,6 +316,16 @@ export default function MyListsPage() {
                     </Text>
                   </Link>
                   <HStack spacing={1}>
+                    {/* Кнопка Поділитися */}
+                    <IconButton
+                      aria-label={`Поділитися списком ${list.name}`}
+                      icon={<LinkIcon />} // Иконка ссылки
+                      size="sm"
+                      colorScheme="blue"
+                      variant="ghost"
+                      onClick={() => handleOpenShareModal(list)}
+                      isDisabled={deletingId !== null}
+                    />
                     {/* Кнопка редактирования */}
                     <IconButton
                       aria-label={`Редагувати список ${list.name}`}
@@ -304,6 +360,15 @@ export default function MyListsPage() {
           onClose={onRenameModalClose}
           listToEdit={editingList}
           onListRenamed={handleListRenamed} // Передаем колбэк для обновления состояния
+        />
+      )}
+      {/* Модальное окно для шаринга */}
+      {sharingList && (
+        <ShareListModal
+          isOpen={isShareModalOpen}
+          onClose={onShareModalClose}
+          listData={sharingList}
+          onStatusChange={handleListShareStatusChanged} // Передаем колбэк
         />
       )}
     </Box>
