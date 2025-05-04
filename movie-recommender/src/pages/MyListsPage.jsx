@@ -21,9 +21,12 @@ import {
   Link,
   Spacer,
   Center,
+  useDisclosure, // <<< Добавить для модалки редактирования
 } from "@chakra-ui/react";
-import { DeleteIcon } from "@chakra-ui/icons";
+import { DeleteIcon, EditIcon } from "@chakra-ui/icons"; // <<< Добавить EditIcon
+import RenameListModal from "../components/RenameListModal"; // <<< Импорт модалки
 import { Link as RouterLink } from "react-router-dom"; // <<< Добавить импорт
+
 export default function MyListsPage() {
   // --- Начало блока хуков ---
   const [lists, setLists] = useState([]);
@@ -34,6 +37,13 @@ export default function MyListsPage() {
   const [error, setError] = useState(null);
   const toast = useToast();
 
+  const {
+    isOpen: isRenameModalOpen,
+    onOpen: onRenameModalOpen,
+    onClose: onRenameModalClose,
+  } = useDisclosure();
+  const [editingList, setEditingList] = useState(null); // Список, который редактируется
+  const [renameValue, setRenameValue] = useState(""); // Значение в поле ввода модалки
   // Все useColorModeValue вызываем ЗДЕСЬ, наверху
   const bg = useColorModeValue("gray.100", "gray.800");
   const cardBg = useColorModeValue("white", "gray.700");
@@ -165,6 +175,21 @@ export default function MyListsPage() {
     }
   };
 
+  // --- Обработчик открытия модалки редактирования ---
+  const handleOpenRenameModal = (list) => {
+    setEditingList(list); // Запоминаем список для редактирования
+    setRenameValue(list.name); // Устанавливаем текущее имя в поле ввода (хотя модалка тоже это делает)
+    onRenameModalOpen(); // Открываем модалку
+  };
+
+  // --- Обработчик после успешного переименования (вызывается из модалки) ---
+  const handleListRenamed = (updatedList) => {
+    // Обновляем имя списка в нашем общем состоянии lists
+    setLists((prevLists) =>
+      prevLists.map((list) => (list.id === updatedList.id ? updatedList : list))
+    );
+  };
+
   // --- Начало основного рендеринга ---
   return (
     <Box bg={bg} minH="calc(100vh - 70px)" py={10} px={4}>
@@ -244,22 +269,43 @@ export default function MyListsPage() {
                       {list.name}{" "}
                     </Text>
                   </Link>
-                  <IconButton
-                    aria-label={`Видалити список ${list.name}`}
-                    icon={<DeleteIcon />}
-                    size="sm"
-                    colorScheme="red"
-                    variant="ghost"
-                    onClick={() => handleDeleteList(list.id, list.name)}
-                    isLoading={deletingId === list.id}
-                    isDisabled={deletingId !== null}
-                  />
+                  <HStack spacing={1}>
+                    {/* Кнопка редактирования */}
+                    <IconButton
+                      aria-label={`Редагувати список ${list.name}`}
+                      icon={<EditIcon />} // <<< Иконка редактирования
+                      size="sm"
+                      colorScheme="yellow" // Или другой цвет
+                      variant="ghost"
+                      onClick={() => handleOpenRenameModal(list)} // <<< Открываем модалку
+                      isDisabled={deletingId !== null} // Блокируем во время удаления другого списка
+                    />
+                    <IconButton
+                      aria-label={`Видалити список ${list.name}`}
+                      icon={<DeleteIcon />}
+                      size="sm"
+                      colorScheme="red"
+                      variant="ghost"
+                      onClick={() => handleDeleteList(list.id, list.name)}
+                      isLoading={deletingId === list.id}
+                      isDisabled={deletingId !== null}
+                    />
+                  </HStack>
                 </Flex>
               </ListItem>
             ))}
           </List>
         )}
       </Box>
+      {/* Модальное окно для переименования */}
+      {editingList && ( // Рендерим только если есть список для редактирования
+        <RenameListModal
+          isOpen={isRenameModalOpen}
+          onClose={onRenameModalClose}
+          listToEdit={editingList}
+          onListRenamed={handleListRenamed} // Передаем колбэк для обновления состояния
+        />
+      )}
     </Box>
   );
 }

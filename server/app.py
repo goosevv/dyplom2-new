@@ -468,6 +468,53 @@ def delete_list(list_id):
 
 # --- Конец эндпоинтов для списков ---
 
+# Переименовать список
+@app.route('/api/lists/<int:list_id>', methods=['PUT'])
+@jwt_required()
+def rename_list(list_id):
+    user_id = get_jwt_identity()
+    data = request.get_json()
+
+    # Проверка наличия нового имени в запросе
+    if not data or not data.get('name'):
+        abort(400, description="Необхідно вказати нове ім'я списку ('name')")
+
+    new_name = data['name'].strip()
+    if not new_name:
+         abort(400, description="Нове ім'я списку не може бути порожнім")
+
+    # Запрещаем переименовывать в 'favorites'
+    if new_name.lower() == 'favorites':
+         abort(400, description="Ім'я 'favorites' зарезервовано")
+
+    # Находим список по ID и ID пользователя
+    list_to_rename = List.query.filter_by(id=list_id, user_id=user_id).first()
+
+    if not list_to_rename:
+        abort(404, description="Список не знайдено або у вас немає прав")
+
+    # Запрещаем переименовывать 'favorites'
+    if list_to_rename.name.lower() == 'favorites':
+         abort(403, description="Список 'favorites' не можна перейменовувати") # 403 Forbidden
+
+    # Проверяем, не занято ли новое имя другим списком ЭТОГО ЖЕ пользователя
+    # Исключаем сам переименовываемый список из проверки
+    existing_list = List.query.filter(
+        List.user_id == user_id,
+        List.name == new_name,
+        List.id != list_id  # Исключаем текущий список
+    ).first()
+    if existing_list:
+        abort(409, description=f"Список з ім'ям '{new_name}' вже існує") # 409 Conflict
+
+    # Обновляем имя и сохраняем в БД
+    list_to_rename.name = new_name
+    db.session.commit()
+
+    return jsonify({'id': list_to_rename.id, 'name': list_to_rename.name, 'message': 'Список перейменовано'}), 200
+
+# --- Конец эндпоинта переименования списка ---
+
 # Получить детали конкретного списка (включая фильмы)
 @app.route('/api/lists/<int:list_id>', methods=['GET']) # <<< Важно: methods=['GET']
 @jwt_required()
@@ -508,6 +555,69 @@ def get_list_details(list_id):
         'name': target_list.name,
         'movies': movies_in_list
     }), 200
+
+# Эндпоинт для получения рекомендаций на основе списка
+@app.route('/api/recommend/list/<int:list_id>', methods=['GET'])
+@jwt_required()
+def recommend_by_list(list_id):
+    user_id = get_jwt_identity()
+    # Получаем параметр ?n= (количество рекомендаций), по умолчанию 10
+    try:
+        n = int(request.args.get('n', 10))
+    except ValueError:
+        n = 10
+    # Умножаем n, чтобы получить больше кандидатов для агрегации
+    num_candidates_multiplier = 3 # Запрашиваем в 3 раза больше рекомендаций для каждого фильма
+
+    # 1. Находим список и проверяем владельца
+    target_list = List.query.filter_by(id=list_id, user_id=user_id).first()
+    if not target_list:
+        abort(404, description="Список не знайдено або у вас немає прав")
+
+    # 2. Получаем ID фильмов в этом списке
+    movie_ids_in_list = [lm.movie_id for lm in target_list.movies]
+    if not movie_ids_in_list:
+        # Если список пуст, можно вернуть топ популярных или пустой список
+        # Вернем пустой список для простоты
+        return jsonify([]), 200
+
+    # 3. Агрегируем рекомендации
+    aggregated_recs = {}
+    num_to_fetch_per_movie = n * num_candidates_multiplier
+
+    print(f"Generating recommendations based on list {list_id} ({target_list.name}) with {len(movie_ids_in_list)} movies.")
+
+    for movie_id in movie_ids_in_list:
+        # Получаем гибридные рекомендации для каждого фильма в списке
+        # Запрашиваем больше, чем нужно (n * multiplier), для лучшей агрегации
+        # Используем существующую функцию hybrid_recommend
+        individual_recs = hybrid_recommend(movie_id, num_to_fetch_per_movie)
+        # print(f"  Recs for movie {movie_id}: {len(individual_recs)}") # Для отладки
+
+        # Суммируем скоры в общем словаре
+        for rec in individual_recs:
+            rec_movie_id = rec['movieId']
+            score = rec.get('score', 0) # Используем get с дефолтом 0
+            # Добавляем или увеличиваем скор фильма в агрегированном словаре
+            aggregated_recs[rec_movie_id] = aggregated_recs.get(rec_movie_id, 0) + score
+
+    # 4. Фильтруем фильмы, которые уже есть в исходном списке
+    filtered_recs = {mid: score for mid, score in aggregated_recs.items() if mid not in movie_ids_in_list}
+
+    # 5. Сортируем по убыванию скора и берем топ N
+    sorted_recs = sorted(filtered_recs.items(), key=lambda item: item[1], reverse=True)[:n]
+
+    # 6. Формируем финальный ответ с названиями фильмов
+    output = []
+    for movie_id, score in sorted_recs:
+        movie = Movie.query.get(movie_id)
+        if movie:
+            output.append({'movieId': movie.movie_id, 'title': movie.title, 'score': round(score, 3)})
+
+    print(f"Returning {len(output)} recommendations for list {list_id}.")
+    return jsonify(output), 200
+
+# --- Конец эндпоинта рекомендаций по списку ---
 
 # --- Конец эндпоинта получения деталей списка ---
 
