@@ -11,18 +11,28 @@ import {
   Flex,
   Tooltip,
   useColorModeValue,
+  useDisclosure,
+  useToast,
+  HStack
 } from "@chakra-ui/react";
 import { FaHeart, FaRegHeart, FaStar } from "react-icons/fa"; // Добавил FaStar для примера
 import ChakraRating from "./ChakraRating"; // Убедитесь, что путь правильный
 import { TMDB_KEY, TMDB_API_BASE, TMDB_IMG_BASE } from "../config"; // Убедитесь, что путь к config правильный
 import { LocaleContext } from "../LocaleContext"; // Убедитесь, что путь правильный
-
+import AddToListsModal from "./AddToListsModal"; // <<< Импорт новой модалки
+import { AddIcon } from '@chakra-ui/icons';
 export default function MovieCard({ movie, onClickCard, showRating }) {
   // === 1. ХУКИ ===
   const { tmdbLang } = useContext(LocaleContext);
   const [details, setDetails] = useState(null);
   const [liked, setLiked] = useState(false);
   const [userRating, setUserRating] = useState(0); // Рейтинг пользователя для этого фильма
+  const {
+    isOpen: isAddToListModalOpen,
+    onOpen: onAddToListModalOpen,
+    onClose: onAddToListModalClose,
+  } = useDisclosure(); // <<< Хук для модалки
+  const toast = useToast(); // <<< Хук для уведомлений
 
   // Цвета для темной/светлой темы
   const cardBg = useColorModeValue("white", "gray.700");
@@ -161,6 +171,23 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
     });
   };
 
+  // --- Функция для открытия модалки добавления в список ---
+  const handleOpenAddToList = (e) => {
+    e.stopPropagation(); // Останавливаем всплытие, чтобы не сработал onClickCard
+    if (!loggedIn) {
+      // Проверяем, залогинен ли пользователь
+      toast({
+        title: "Потрібна авторизація",
+        description: "Увійдіть до системи, щоб додавати фільми до списків.",
+        status: "warning",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+    onAddToListModalOpen(); // Открываем модальное окно
+  };
+
   // === 3. УСЛОВНЫЙ РЕНДЕРИНГ (Спиннер) ===
   if (details === null) {
     return (
@@ -189,9 +216,10 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
     "";
   const genres = (details.genres || []).map((g) => g.name).join(", ");
   const overview = details.overview || "Опис відсутній.";
-  const displayTitle = details.title || movie.title;
+  const displayTitle = details?.title || movie.title;
 
   return (
+    <>
     <Box
       pos="relative"
       maxW="sm"
@@ -269,7 +297,7 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
             fontSize="xs"
             color="gray.500"
             isTruncated
-            maxW="40%"
+            maxW={{ base: "30%", md: "40%" }}
             onClick={onClickCard}>
             {year}
             {genres && ` • ${genres}`}
@@ -302,7 +330,7 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
                 </Box>
               </Tooltip>
             ))}
-
+          <HStack spacing={1}> {/* HStack для группировки кнопок */}
           {/* --- Лайк --- */}
           <IconButton
             aria-label="Нравится"
@@ -311,9 +339,27 @@ export default function MovieCard({ movie, onClickCard, showRating }) {
             variant="ghost"
             size="sm"
             isRound
+            fontSize="18px"
           />
+          <IconButton
+                aria-label="Додати до списку"
+                icon={<AddIcon />} // Используем AddIconы
+                onClick={handleOpenAddToList} // Открываем модалку
+                variant="ghost"
+                size="sm"
+                isRound
+                fontSize="14px" // Можно подстроить размер иконки
+              />
+          </HStack>
         </Flex>
       </Box>
     </Box>
+    <AddToListsModal
+      isOpen={isAddToListModalOpen}
+      onClose={onAddToListModalClose}
+      movieId={movie.movieId} // Передаем ID фильма
+      movieTitle={displayTitle} // Передаем название фильма
+     />
+    </>
   );
 }

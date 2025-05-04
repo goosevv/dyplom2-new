@@ -13,6 +13,7 @@ import Recommendations from './pages/Recommendations';
 import Favorites from './pages/Favorites';
 import Profile from './pages/Profile';
 import MyListsPage from './pages/MyListsPage'; // <<< Добавить импорт
+import ListPage from './pages/ListPage'; // <<< Добавить импорт
 // import MovieDetails from './pages/MovieDetails';
 // import NotFound from './pages/NotFound';
 import { LocaleContext } from './LocaleContext'; // Импорт контекста
@@ -131,6 +132,7 @@ export default function App() {
                 <Route path="/favorites" element={<Favorites />} />
                 <Route path="/profile" element={<Profile user={user} onLogout={handleLogout} />} />
                 <Route path="/mylists" element={<MyListsPage />} /> {/* <<< Добавить этот маршрут */}
+                <Route path="/list/:listId" element={<ListPage />} /> {/* <<< Добавить динамический маршрут */}
                 {/* Другие приватные роуты */}
                  {/* <Route path="/movie/:id" element={<MovieDetails />} /> */}
                  {/* <Route path="/lists" element={<Lists />} /> */}
