@@ -3,7 +3,8 @@
 import os
 import pickle
 from flask import Flask, request, jsonify, abort
-from extensions import db, jwt
+from flask_migrate import Migrate
+from extensions import db, jwt, Migrate
 from flask_jwt_extended import (
     JWTManager, create_access_token,
     jwt_required, get_jwt_identity
@@ -22,6 +23,7 @@ app.config.from_object(Config)
 
 db.init_app(app)
 jwt.init_app(app)
+migrate = Migrate(app, db)
 CORS(app)
 # ── Создаём все таблицы сразу после инициализации Flask ──
 with app.app_context():
