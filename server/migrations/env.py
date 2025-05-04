@@ -31,7 +31,24 @@ def get_engine_url():
     except AttributeError:
         return str(get_engine().url).replace('%', '%%')
 
+# ---> ДОДАТИ/ПЕРЕВІРИТИ ЦЕЙ БЛОК ІМПОРТУ <---
+import sys
+import os
+# Додаємо шлях до папки server (де лежать models/models.py та extensions.py)
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+try:
+    # Імпортуємо db ТА моделі, щоб вони зареєструвалися в db.metadata
+    from extensions import db
+    from models.models import * # Імпортуємо всі моделі
+    print("[env.py] Успішно імпортовано db та моделі")
+except ImportError as e:
+    print(f"[env.py] ПОМИЛКА імпорту db або моделей: {e}")
+    print("          Перевірте шлях та наявність extensions.py та models/models.py")
+    # Можна зупинити процес, якщо імпорт критичний
+    # raise e
 
+target_metadata = db.metadata # Тепер db.metadata має бути заповненим
+# ---> КІНЕЦЬ БЛОКУ ІМПОРТУ <---
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
@@ -65,7 +82,7 @@ def run_migrations_offline():
     """
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
-        url=url, target_metadata=get_metadata(), literal_binds=True
+        url=url, target_metadata=target_metadata, literal_binds=True
     )
 
     with context.begin_transaction():
@@ -99,7 +116,7 @@ def run_migrations_online():
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
-            target_metadata=get_metadata(),
+            target_metadata=target_metadata,
             **conf_args
         )
 

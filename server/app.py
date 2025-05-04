@@ -13,6 +13,7 @@ from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from surprise import dump
+from models.models import User, Movie, Rating, MovieList, ListMovie, Genre # та інші потрібні моделі
 import joblib
 import scipy
 import scipy.sparse as sp
@@ -25,19 +26,6 @@ db.init_app(app)
 jwt.init_app(app)
 migrate = Migrate(app, db)
 CORS(app)
-# ── Создаём все таблицы сразу после инициализации Flask ──
-with app.app_context():
-    from models.user       import User
-    from models.movie      import Movie
-    from models.rating     import Rating
-    from models.user_list  import List, ListMovie
-    db.create_all()
-
-# ── SQLAlchemy Models ─────────────────────────────────────────────
-from models.user       import User
-from models.movie      import Movie
-from models.rating     import Rating
-from models.user_list  import List, ListMovie
 
 # ── Load ML models ─────────────────────────────────────────────────
 MODELS_DIR = os.path.join(os.path.dirname(__file__), 'models')
