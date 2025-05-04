@@ -249,7 +249,7 @@ export default function Recommendations() {
           hasMore={displayed.length < recommendations.length}
           loader={<Spinner my={4} />}
           style={{ overflow: "visible" }}>
-          <SimpleGrid columns={[1, 2, 3, 4]} spacing={6}>
+          <SimpleGrid columns={[2, 3, 5, 6]} spacing={6}>
             {filtered.map((m) => (
               <MovieCard
                 key={m.movieId}
