@@ -1,6 +1,6 @@
-// src/components/AddToListsModal.jsx
-import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+// src/components/AddToListsModal.jsx (СТИЛИЗОВАННАЯ ВЕРСИЯ)
+import React, { useState, useEffect, useCallback } from "react";
+import axios from "axios";
 import {
   Modal,
   ModalOverlay,
@@ -17,33 +17,48 @@ import {
   Alert,
   AlertIcon,
   useToast,
-  Flex, // Используем Flex для строки
-  Spacer, // Для расталкивания элементов
-  useColorModeValue,
-  Center
-} from '@chakra-ui/react';
+  Flex,
+  Spacer,
+  Center,
+  useTheme, // Импорт useTheme
+  // useColorModeValue убран
+} from "@chakra-ui/react";
 
-export default function AddToListsModal({ isOpen, onClose, movieId, movieTitle }) {
+export default function AddToListsModal({
+  isOpen,
+  onClose,
+  movieId,
+  movieTitle,
+}) {
   const [lists, setLists] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [addingToListId, setAddingToListId] = useState(null); // ID списка, в который добавляем
+  const [addingToListId, setAddingToListId] = useState(null);
   const [error, setError] = useState(null);
   const toast = useToast();
-  const listItemHoverBg = useColorModeValue("gray.100", "gray.600");
+  const theme = useTheme(); // Получаем тему
 
-  // Функция загрузки списков
+  // Цвета из темы
+  const modalBg = "brand.purple";
+  const headerColor = "brand.gold";
+  const bodyColor = "whiteAlpha.900";
+  const listItemBg = "transparent";
+  const listItemHoverBg = "whiteAlpha.100";
+  const borderColor = "whiteAlpha.200";
+  const buttonTextColor = "brand.gold";
+
   const fetchLists = useCallback(async () => {
-    if (!isOpen) return; // Не загружаем, если модалка закрыта
+    // ... (логика без изменений) ...
+    if (!isOpen) return;
     setIsLoading(true);
     setError(null);
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     if (!token) {
       setError("Помилка аутентифікації.");
       setIsLoading(false);
       return;
     }
     try {
-      const response = await axios.get('/api/lists', {
+      const response = await axios.get("/api/lists", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setLists(response.data);
@@ -53,23 +68,21 @@ export default function AddToListsModal({ isOpen, onClose, movieId, movieTitle }
     } finally {
       setIsLoading(false);
     }
-  }, [isOpen]); // Перезагружаем при открытии модального окна
+  }, [isOpen]);
 
-  // Загружаем списки при открытии модального окна
   useEffect(() => {
     fetchLists();
-  }, [fetchLists]); // Зависимость только от fetchLists (который зависит от isOpen)
+  }, [fetchLists]);
 
-
-  // Обработчик добавления фильма в список
   const handleAddToList = async (listId, listName) => {
-    setAddingToListId(listId); // Показываем индикатор на кнопке
-    setError(null); // Сбрасываем общую ошибку
-    const token = localStorage.getItem('token');
-
+    // ... (логика без изменений) ...
+    setAddingToListId(listId);
+    setError(null);
+    const token = localStorage.getItem("token");
     try {
-      await axios.post(`/api/lists/${listId}/movies`,
-        { movieId: movieId }, // Передаем movieId в теле запроса
+      await axios.post(
+        `/api/lists/${listId}/movies`,
+        { movieId: movieId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       toast({
@@ -78,10 +91,12 @@ export default function AddToListsModal({ isOpen, onClose, movieId, movieTitle }
         duration: 3000,
         isClosable: true,
       });
-      // Можно закрыть модалку после успешного добавления
-      // onClose();
+      // onClose(); // Можно закрывать после добавления
     } catch (err) {
-      const errorMsg = err.response?.data?.message || err.response?.data?.description || "Не вдалося додати фільм до списку.";
+      const errorMsg =
+        err.response?.data?.message ||
+        err.response?.data?.description ||
+        "Не вдалося додати фільм до списку.";
       toast({
         title: "Помилка додавання",
         description: errorMsg,
@@ -90,30 +105,50 @@ export default function AddToListsModal({ isOpen, onClose, movieId, movieTitle }
         isClosable: true,
       });
       console.error("Add to list error:", err.response?.data || err);
-       // setError(errorMsg); // Можно отобразить ошибку и в модалке
     } finally {
-      setAddingToListId(null); // Убираем индикатор с кнопки
+      setAddingToListId(null);
     }
   };
 
-
   return (
-    <Modal isOpen={isOpen} onClose={onClose} scrollBehavior="inside" size="lg">
-      <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>Додати "{movieTitle}" до списку</ModalHeader>
-        <ModalCloseButton />
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      scrollBehavior="inside"
+      size="lg"
+      isCentered>
+      <ModalOverlay bg="blackAlpha.700" />
+      <ModalContent bg={modalBg} color={bodyColor} borderRadius="xl">
+        <ModalHeader
+          color={headerColor}
+          borderBottomWidth="1px"
+          borderColor={borderColor}>
+          Додати "{movieTitle}" до списку
+        </ModalHeader>
+        <ModalCloseButton
+          _hover={{ bg: "whiteAlpha.200" }}
+          top="14px"
+          right="14px"
+        />
         <ModalBody>
           {error && (
-            <Alert status="error" mb={4} borderRadius="md">
-              <AlertIcon /> {error}
+            <Alert status="error" mb={4} borderRadius="md" variant="subtle">
+              {" "}
+              <AlertIcon /> {error}{" "}
             </Alert>
           )}
 
           {isLoading ? (
-            <Center py={5}> <Spinner /> </Center>
+            <Center py={5}>
+              {" "}
+              <Spinner color="brand.gold" />{" "}
+            </Center>
           ) : lists.length === 0 ? (
-            <Text>У вас немає створених списків. Створіть новий на сторінці "Мої списки".</Text>
+            <Text color="gray.400">
+              {" "}
+              У вас немає створених списків. Створіть новий на сторінці "Мої
+              списки".{" "}
+            </Text>
           ) : (
             <List spacing={2}>
               {lists.map((list) => (
@@ -121,19 +156,20 @@ export default function AddToListsModal({ isOpen, onClose, movieId, movieTitle }
                   key={list.id}
                   p={2}
                   borderRadius="md"
-                  _hover={{ bg: listItemHoverBg }}
-                >
+                  _hover={{ bg: listItemHoverBg }}>
                   <Flex align="center">
                     <Text>{list.name}</Text>
                     <Spacer />
+                    {/* Стилизуем кнопку "Додати" */}
                     <Button
                       size="sm"
-                      colorScheme="teal"
-                      variant="outline"
+                      variant="outline" // Контурная кнопка
+                      borderColor={buttonTextColor} // Золотая рамка
+                      color={buttonTextColor} // Золотой текст
+                      _hover={{ bg: "whiteAlpha.100" }} // Легкий фон при наведении
                       onClick={() => handleAddToList(list.id, list.name)}
                       isLoading={addingToListId === list.id}
-                      isDisabled={addingToListId !== null} // Блокируем другие кнопки
-                    >
+                      isDisabled={addingToListId !== null}>
                       Додати
                     </Button>
                   </Flex>
@@ -143,8 +179,14 @@ export default function AddToListsModal({ isOpen, onClose, movieId, movieTitle }
           )}
         </ModalBody>
 
-        <ModalFooter>
-          <Button onClick={onClose}>Закрити</Button>
+        <ModalFooter borderTopWidth="1px" borderColor={borderColor}>
+          {/* Стилизуем кнопку Закрыть */}
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            _hover={{ bg: "whiteAlpha.100" }}>
+            Закрити
+          </Button>
         </ModalFooter>
       </ModalContent>
     </Modal>

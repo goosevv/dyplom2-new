@@ -2,25 +2,25 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
-  Box,
-  Heading,
-  SimpleGrid,
-  Spinner,
-  Alert,
-  AlertIcon,
-  Text,
-  useColorModeValue,
+  Box, Heading, SimpleGrid, Spinner, Alert, AlertIcon, Text, Center
+  // useColorModeValue убран
 } from "@chakra-ui/react";
 import MovieCard from "../components/MovieCard";
-import { authHeaders } from "../config";
+// import { authHeaders } from "../config"; // Не используется
 
 export default function Favorites() {
   const [favs, setFavs] = useState(null);
   const [error, setError] = useState(null);
-  const bg = useColorModeValue("gray.50", "gray.800");
+  // const bg = useColorModeValue("gray.50", "gray.800"); // Убран
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+    // Добавим проверку токена перед запросом
+    if (!token) {
+        setError("Будь ласка, увійдіть, щоб побачити улюблені.");
+        setFavs([]); // Устанавливаем пустой массив
+        return;
+    }
     axios
       .get("/api/recommend/user/favorites", {
         headers: { Authorization: `Bearer ${token}` }
@@ -28,31 +28,35 @@ export default function Favorites() {
       .then((res) => setFavs(res.data))
       .catch(() => setError("Не вдалося завантажити улюблені"));
   }, []);
-  
+
 
   if (error) {
     return (
-      <Alert status="error" mt={4}>
-        <AlertIcon /> {error}
-      </Alert>
+      <Center minH="calc(100vh - 70px)">
+        <Alert status="error" variant="subtle" borderRadius="md">
+          <AlertIcon /> {error}
+        </Alert>
+      </Center>
     );
   }
-  if (favs === null) {
-    return <Spinner size="lg" mt={8} />;
+  if (favs === null) { // Пока идет загрузка (favs === null)
+    return <Center minH="calc(100vh - 70px)"><Spinner size="xl" color="brand.gold" /></Center>;
   }
   if (favs.length === 0) {
-    return <Text mt={8}>У вас немає улюблених фільмів</Text>;
+    return <Center minH="calc(100vh - 70px)"><Text fontSize="xl">У вас ще немає улюблених фільмів</Text></Center>;
   }
 
   return (
-    <Box bg={bg} minH="100vh" p={4}>
-      <Heading mb={4}>Улюблені фільми</Heading>
-      <SimpleGrid
-        columns={{ base: 1, sm: 2, md: 3 }}
-        spacing={6}
-        alignItems="stretch">
+    // Убираем bg
+    <Box minH="calc(100vh - 70px)" p={6}>
+      <Heading as="h1" mb={6} color="brand.gold" textAlign="center"> {/* Золотой заголовок */}
+        Улюблені фільми
+      </Heading>
+      {/* Увеличили количество колонок */}
+      <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} spacing={6} alignItems="stretch">
         {favs.map((movie) => (
-          <MovieCard key={movie.movieId} movie={movie} showRating /> // Добавлено
+          // Предполагаем, что MovieCard адаптируется к фону или стилизуется отдельно
+          <MovieCard key={movie.movieId} movie={movie} showRating />
         ))}
       </SimpleGrid>
     </Box>

@@ -1,75 +1,64 @@
 // src/pages/Home.jsx
-import React from 'react'
-import { useNavigate } from 'react-router-dom'
-import {
-  Box,
-  Flex,
-  Heading,
-  Text,
-  Button,
-  VStack,
-  useColorModeValue
-} from '@chakra-ui/react'
-import { FiPlayCircle } from 'react-icons/fi'
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Box, Flex, Heading, Text, Button, VStack } from '@chakra-ui/react';
+// import { FiPlayCircle } from 'react-icons/fi'; // Можно убрать иконку, если не нужна
 
 export default function Home() {
-  const navigate = useNavigate()
-  // если хотите градиент вместо картинки, замените строку ниже на:
-  // const bgImage = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-  // const bgImage = 'url(/images/your-background.jpg)'  // ← путь к вашей картинке
- const bgImage = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+  const navigate = useNavigate();
+
+  // Оставляем градиентный фон для главной, но можно заменить на brand.purple, если хотите
+  // const bgGradient = 'linear-gradient(135deg, #503470 0%, #30283C 100%)'; // Пример градиента на основе brand.purple
+  const bgGradient = 'linear-gradient(135deg, #4a405a 0%, #30283C 100%)'; // Еще вариант
+
   return (
     <Box
       pos="relative"
-      height="100vh"
-      backgroundImage={bgImage}
-      backgroundSize="cover"
-      backgroundPosition="center"
-      _before={{
-        // тёмный полупрозрачный оверлей
-        content: '""',
-        pos: 'absolute',
-        inset: 0,
-        bg: 'rgba(0,0,0,0.6)',
-      }}
+      height="calc(100vh - 70px)" // Высота за вычетом хедера
+      width="100%"
+      overflow="hidden" // Предотвратить выход контента за градиент
     >
-      {/* Flex поверх оверлея, чтобы центрировать контент */}
+      {/* Flex для центрирования контента */}
       <Flex
-        pos="relative"
         height="100%"
         align="center"
         justify="center"
         px={4}
+        // Применяем градиент ко Flex контейнеру
+        bgGradient={bgGradient}
+        color="white" // Текст будет белым
       >
-        <VStack spacing={6} textAlign="center" maxW="lg">
+        <VStack spacing={6} textAlign="center" maxW="lg" zIndex={1}>
           <Heading
             as="h1"
-            color="white"
+            // color="white" // Унаследует от Flex
             fontSize={{ base: '3xl', md: '5xl' }}
             fontWeight="extrabold"
-            zIndex={1}
           >
             Відкрий для себе ідеальні фільми
           </Heading>
           <Text
-            color="gray.200"
+            color="whiteAlpha.800" // Чуть менее яркий текст
             fontSize={{ base: 'md', md: 'lg' }}
             maxW="md"
-            zIndex={1}
           >
             Знайди рекомендації, оцінюй, зберігай улюблене – усе в одному місці.
           </Text>
           <Button
             size="lg"
-            colorScheme="teal"
-            rightIcon={<FiPlayCircle />}
-            onClick={() => navigate('/recommendations')}
-            zIndex={1}
+            // Убираем colorScheme="teal"
+            // rightIcon={<FiPlayCircle />} // Убираем иконку для чистоты
+            onClick={() => navigate('/recommendations')} // Или на /register ?
+            // Стилизуем кнопку
+            bg="brand.gold"
+            color="brand.purple" // или 'gray.900'
+            _hover={{ bg: "brand.goldHover" }}
+            px={8} // Горизонтальный паддинг
           >
             Почати зараз
           </Button>
         </VStack>
       </Flex>
     </Box>
-  )
+  );
 }

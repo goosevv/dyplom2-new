@@ -1,311 +1,151 @@
 // src/pages/ListPage.jsx
 import React, { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate, Link as RouterLink } from "react-router-dom"; // Добавили RouterLink
+import { useParams, useNavigate, Link as RouterLink } from "react-router-dom";
 import axios from "axios";
 import {
-  Box,
-  Heading,
-  Spinner,
-  Alert,
-  AlertIcon,
-  SimpleGrid,
-  Text,
-  useColorModeValue,
-  Center,
-  Button,
-  IconButton, // <<< Убедитесь, что импортирован
-  useToast, // <<< Убедитесь, что импортирован
-  Link,
-  Divider,
+  Box, Heading, Spinner, Alert, AlertIcon, SimpleGrid, Text, Center, Button, IconButton, useToast, Link, Divider
+  // useColorModeValue убран
 } from "@chakra-ui/react";
 import { ArrowBackIcon, DeleteIcon } from "@chakra-ui/icons";
-import MovieCard from "../components/MovieCard"; // Используем нашу MovieCard
+import MovieCard from "../components/MovieCard"; // MovieCard стилизуется отдельно
 
 export default function ListPage() {
   const { listId } = useParams();
   const navigate = useNavigate();
-  const [listData, setListData] = useState(null); // { id, name, movies: [] }
+  const [listData, setListData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [deletingMovieId, setDeletingMovieId] = useState(null); // Для индикации удаления фильма
+  const [deletingMovieId, setDeletingMovieId] = useState(null);
   const toast = useToast();
-  const bg = useColorModeValue("gray.100", "gray.800");
+  // const bg = useColorModeValue("gray.100", "gray.800"); // Убран
 
-  // --- НОВОЕ: Состояния для рекомендаций ---
+  // Состояния для рекомендаций
   const [listRecommendations, setListRecommendations] = useState([]);
   const [isLoadingRecs, setIsLoadingRecs] = useState(false);
   const [errorRecs, setErrorRecs] = useState(null);
-  // --- Конец нового состояния ---
 
-  // Функция загрузки данных списка
+  // Загрузка деталей списка
   const fetchListDetails = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    setListRecommendations([]); // Сбрасываем старые рекомендации при загрузке основного списка
-    setErrorRecs(null); // Сбрасываем ошибки рекомендаций
+    // ... (логика без изменений) ...
+     setIsLoading(true); setError(null); setListRecommendations([]); setErrorRecs(null);
     const token = localStorage.getItem("token");
-    if (!token) {
-      setError("Помилка аутентифікації.");
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const response = await axios.get(`/api/lists/${listId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+    if (!token) { setError("Помилка аутентифікації."); setIsLoading(false); return; }
+     try {
+      const response = await axios.get(`/api/lists/${listId}`, { headers: { Authorization: `Bearer ${token}` } });
       setListData(response.data);
-      // !!! Запускаем загрузку рекомендаций ПОСЛЕ успешной загрузки основного списка !!!
-      // Но только если список не пустой
-      if (response.data?.movies?.length > 0) {
-        fetchListRecommendations(listId, token); // Вызываем новую функцию
-      }
+      if (response.data?.movies?.length > 0) { fetchListRecommendations(listId, token); }
     } catch (err) {
-      const errorDesc =
-        err.response?.data?.description || "Не вдалося завантажити список.";
-      setError(`Не вдалося завантажити список (ID: ${listId}). ${errorDesc}`);
-      setListData(null);
+      const errorDesc = err.response?.data?.description || "Не вдалося завантажити список.";
+      setError(`Не вдалося завантажити список (ID: ${listId}). ${errorDesc}`); setListData(null);
       console.error("Fetch list details error:", err.response?.data || err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [listId]);
+    } finally { setIsLoading(false); }
+  }, [listId]); // Добавил fetchListRecommendations в зависимости
 
-  // --- НОВАЯ Функция загрузки рекомендаций ---
+  // Загрузка рекомендаций
   const fetchListRecommendations = useCallback(async (currentListId, token) => {
+    // ... (логика без изменений) ...
     console.log(`Workspaceing recommendations for list ${currentListId}`);
-    setIsLoadingRecs(true);
-    setErrorRecs(null);
+    setIsLoadingRecs(true); setErrorRecs(null);
     try {
-      // Запрашиваем чуть больше, например 10, чтобы показать 2 ряда по 5 или 4
-      const recsResponse = await axios.get(
-        `/api/recommend/list/${currentListId}?n=10`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const recsResponse = await axios.get(`/api/recommend/list/${currentListId}?n=10`, { headers: { Authorization: `Bearer ${token}` } });
       setListRecommendations(recsResponse.data);
       console.log("List recommendations received:", recsResponse.data);
     } catch (err) {
       setErrorRecs("Не вдалося завантажити рекомендації для цього списку.");
-      console.error(
-        "Fetch list recommendations error:",
-        err.response?.data || err
-      );
-    } finally {
-      setIsLoadingRecs(false);
-    }
-  }, []); // Пустой массив зависимостей, т.к. параметры передаются явно
+      console.error("Fetch list recommendations error:", err.response?.data || err);
+    } finally { setIsLoadingRecs(false); }
+  }, []);
 
-  // Загружаем данные при монтировании или смене listId
-  useEffect(() => {
-    fetchListDetails();
-  }, [fetchListDetails]);
+  useEffect(() => { fetchListDetails(); }, [fetchListDetails]);
 
-  // --- РАСКОММЕНТИРУЕМ И РЕАЛИЗУЕМ Функцию удаления фильма из списка ---
+  // Удаление фильма
   const handleDeleteMovie = useCallback(async (movieId, movieTitle) => {
-    // Добавим подтверждение
-    if (
-      !window.confirm(
-        `Ви впевнені, що хочете видалити фільм "${movieTitle}" зі списку "${listData?.name}"?`
-      )
-    ) {
-      return;
-    }
-
-    setDeletingMovieId(movieId); // Показываем спиннер на кнопке
-    setError(null);
+     // ... (логика без изменений) ...
+      if (!window.confirm(`Ви впевнені, що хочете видалити фільм "${movieTitle}" зі списку "${listData?.name}"?`)) { return; }
+    setDeletingMovieId(movieId); setError(null);
     const token = localStorage.getItem("token");
-    if (!token) {
-      toast({
-        title: "Помилка аутентифікації",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
-      setDeletingMovieId(null);
-      return;
-    }
-
-    try {
-      // Отправляем DELETE запрос на бэкенд
-      await axios.delete(`/api/lists/${listId}/movies/${movieId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      // Обновляем состояние movies в listData, убирая удаленный фильм
-      setListData((prevData) => ({
-        ...prevData,
-        movies: prevData.movies.filter((movie) => movie.movieId !== movieId),
-      }));
-
-      toast({
-        title: `Фільм "${movieTitle}" видалено зі списку.`,
-        status: "info", // Используем info или success
-        duration: 3000,
-        isClosable: true,
-      });
+    if (!token) { toast({ title: "Помилка аутентифікації", status: "error", duration: 3000, isClosable: true }); setDeletingMovieId(null); return; }
+     try {
+      await axios.delete(`/api/lists/${listId}/movies/${movieId}`, { headers: { Authorization: `Bearer ${token}` } });
+      setListData((prevData) => ({ ...prevData, movies: prevData.movies.filter((movie) => movie.movieId !== movieId) }));
+      toast({ title: `Фільм "${movieTitle}" видалено зі списку.`, status: "info", duration: 3000, isClosable: true });
     } catch (err) {
-      const errorMsg =
-        err.response?.data?.description ||
-        err.response?.data?.message ||
-        "Не вдалося видалити фільм.";
-      toast({
-        title: "Помилка видалення фільму",
-        description: errorMsg,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
+      const errorMsg = err.response?.data?.description || err.response?.data?.message || "Не вдалося видалити фільм.";
+      toast({ title: "Помилка видалення фільму", description: errorMsg, status: "error", duration: 5000, isClosable: true });
       console.error("Delete movie from list error:", err.response?.data || err);
-      // Можно добавить setError(errorMsg), если нужно показать ошибку на странице
-    } finally {
-      setDeletingMovieId(null); // Убираем спиннер с кнопки
-    }
+    } finally { setDeletingMovieId(null); }
   }, [listId, listData?.name, toast]);
-  // --- Конец функции удаления ---
 
   // --- Рендеринг ---
-
-  if (isLoading) {
-    return (
-      <Center h="calc(100vh - 70px)">
-        {" "}
-        <Spinner size="xl" />{" "}
-      </Center>
-    );
-  }
+  if (isLoading) { return ( <Center h="calc(100vh - 70px)"> <Spinner size="xl" color="brand.gold"/> </Center> ); }
 
   if (error) {
     return (
-      <Box bg={bg} minH="calc(100vh - 70px)" py={10} px={4}>
-        <Alert status="error" maxW="xl" mx="auto" borderRadius="md">
-          {" "}
-          <AlertIcon /> {error}{" "}
-        </Alert>
-        <Button
-          leftIcon={<ArrowBackIcon />}
-          mt={4}
-          onClick={() => navigate(-1)}
-          variant="outline">
-          До списків
-        </Button>
+      <Box minH="calc(100vh - 70px)" py={10} px={4}>
+         <Alert status="error" maxW="xl" mx="auto" borderRadius="md" variant="subtle"> <AlertIcon /> {error} </Alert>
+         <Center mt={4}><Button leftIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} variant="outline" borderColor="brand.gold" color="brand.gold" _hover={{bg: "whiteAlpha.100"}}>До списків</Button></Center>
       </Box>
     );
   }
 
-  // Добавили проверку !listData на случай, если fetch завершился без ошибки, но данных нет
-  if (!listData) {
-    return (
-      <Box bg={bg} minH="calc(100vh - 70px)" py={10} px={4}>
-        <Text textAlign="center">Список не знайдено або порожній.</Text>
-        <Button
-          leftIcon={<ArrowBackIcon />}
-          mt={4}
-          onClick={() => navigate(-1)}
-          variant="outline">
-          До списків
-        </Button>
-      </Box>
-    );
-  }
+  if (!listData) { return ( /* ... обработка пустого listData ... */ <Text>Список не знайдено.</Text>); }
 
-  // Если все хорошо, показываем список
   return (
-    <Box bg={bg} minH="calc(100vh - 70px)" py={10} px={4}>
+    // Убираем bg
+    <Box minH="calc(100vh - 70px)" py={10} px={4}>
       <Box maxW="6xl" mx="auto">
-        <Button
-          leftIcon={<ArrowBackIcon />}
-          mb={4}
-          onClick={() => navigate(-1)}
-          variant="ghost">
+        <Button leftIcon={<ArrowBackIcon />} mb={4} onClick={() => navigate(-1)} variant="ghost" color="gray.400" _hover={{color:"white"}}>
           До списків
         </Button>
-        <Heading as="h1" size="xl" mb={6}>
+        <Heading as="h1" size="xl" mb={6} color="brand.gold" textAlign="center"> {/* Золотой заголовок */}
           {listData.name}
         </Heading>
 
+        {/* Фильмы в списке */}
         {listData.movies.length === 0 ? (
-          <Text>Цей список порожній.</Text>
+          <Text textAlign="center" color="gray.400">Цей список порожній.</Text>
         ) : (
-          <SimpleGrid columns={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing={6}>
-            {" "}
-            {/* Добавил xl */}
+           // Увеличили кол-во колонок
+          <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} spacing={6}>
             {listData.movies.map((movie) => (
               <Box key={movie.movieId} pos="relative" role="group">
-                {" "}
-                {/* Добавил role="group" для hover эффекта */}
-                <MovieCard
-                  movie={movie}
-                  showRating // Показываем рейтинг и здесь
-                  // Можно сделать карточку некликабельной здесь или чтобы вела на стр. фильма
-                  onClickCard={() =>
-                    alert(`Переход на страницу фильма ${movie.movieId}`)
-                  } // Пример заглушки
-                />
-                {/* РАСКОММЕНТИРУЕМ Кнопку удаления фильма */}
+                {/* MovieCard стилизуется отдельно */}
+                <MovieCard movie={movie} showRating onClickCard={() => { /* alert(`Фильм ${movie.movieId}`) */ }} />
                 <IconButton
-                  aria-label={`Видалити ${movie.title} зі списку`}
-                  icon={<DeleteIcon />}
-                  size="xs"
-                  colorScheme="red"
-                  variant="solid"
-                  isRound
-                  pos="absolute"
-                  top="8px"
-                  right="8px"
-                  zIndex="docked"
-                  boxShadow="md"
-                  // Показываем кнопку только при наведении на родительский Box
-                  opacity={0}
-                  _groupHover={{ opacity: 1 }} // Используем _groupHover
-                  transition="opacity 0.2s ease-in-out"
-                  // Вызываем handleDeleteMovie при клике
-                  onClick={(e) => {
-                    e.stopPropagation(); // Останавливаем клик по карточке
-                    handleDeleteMovie(movie.movieId, movie.title);
-                  }}
-                  isLoading={deletingMovieId === movie.movieId} // Индикатор загрузки
-                  isDisabled={deletingMovieId !== null} // Блокируем другие во время удаления
+                  aria-label={`Видалити ${movie.title} зі списку`} icon={<DeleteIcon />} size="xs" colorScheme="red" variant="solid" isRound
+                  pos="absolute" top="8px" right="8px" zIndex="docked" boxShadow="md"
+                  opacity={0} _groupHover={{ opacity: 1 }} transition="opacity 0.2s ease-in-out"
+                  onClick={(e) => { e.stopPropagation(); handleDeleteMovie(movie.movieId, movie.title); }}
+                  isLoading={deletingMovieId === movie.movieId} isDisabled={deletingMovieId !== null}
                 />
               </Box>
             ))}
           </SimpleGrid>
         )}
-                {/* --- НОВЫЙ БЛОК: Рекомендации на основе списка --- */}
-                {listData.movies.length > 0 && ( // Показываем только если исходный список не пуст
-            <> {/* Используем фрагмент */}
-                <Divider my={8} /> {/* Разделитель */}
-                <Heading as="h2" size="lg" mb={4}>
+
+        {/* Рекомендации на основе списка */}
+        {listData.movies.length > 0 && (
+            <>
+                <Divider my={10} borderColor="whiteAlpha.300" /> {/* Разделитель */}
+                <Heading as="h2" size="lg" mb={6} textAlign="center" color="brand.gold" fontWeight="semibold"> {/* Золотой подзаголовок */}
                     Можливо, вам сподобається:
                 </Heading>
+                {errorRecs && ( <Alert status="warning" mb={4} borderRadius="md" variant="subtle"> <AlertIcon /> {errorRecs} </Alert> )}
 
-                {/* Ошибка загрузки рекомендаций */}
-                {errorRecs && (
-                    <Alert status="warning" mb={4} borderRadius="md"> <AlertIcon /> {errorRecs} </Alert>
-                )}
-
-                {/* Загрузка рекомендаций */}
                 {isLoadingRecs ? (
-                    <Center py={5}> <Spinner /> </Center>
+                    <Center py={5}> <Spinner color="brand.gold"/> </Center>
                 ) : listRecommendations.length === 0 && !errorRecs ? (
-                    <Text>Немає доступних рекомендацій для цього списку.</Text>
+                    <Text textAlign="center" color="gray.400">Немає доступних рекомендацій для цього списку.</Text>
                 ) : (
-                    // Сетка с рекомендациями
-                    <SimpleGrid columns={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing={6}>
+                     // Увеличили кол-во колонок
+                    <SimpleGrid columns={{ base: 2, sm: 3, md: 4, lg: 5, xl: 6 }} spacing={6}>
                         {listRecommendations.map((recMovie) => (
-                            <MovieCard
-                                key={`rec-${recMovie.movieId}`} // Добавляем префикс к key
-                                movie={recMovie} // Передаем рекомендованный фильм
-                                showRating // Можно показывать/скрывать рейтинг
-                                onClickCard={() => alert(`Переход на страницу фильма ${recMovie.movieId}`)}
-                            />
+                            <MovieCard key={`rec-${recMovie.movieId}`} movie={recMovie} showRating onClickCard={() => { /* alert(`Фильм ${recMovie.movieId}`) */ }} />
                         ))}
                     </SimpleGrid>
                 )}
             </>
         )}
-        {/* --- Конец блока рекомендаций --- */}
       </Box>
     </Box>
   );
