@@ -5,6 +5,7 @@ import {
   MenuDivider, Avatar, useColorModeValue, Spacer, IconButton, Image, Text, Container
 } from '@chakra-ui/react';
 import { NavLink, Link as RouterLink } from 'react-router-dom';
+import { AuthContext } from "../context/AuthContext";
 import LanguageSwitcher from './LanguageSwitcher'; // Убедитесь, что этот компонент стилизован схоже
 
 import logoImage from '../assets/reelgoose-logo.png'; // <-- ВАШ ПУТЬ

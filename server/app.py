@@ -491,6 +491,56 @@ def search_local_movies():
         .all()
     # ИСПРАВЛЕНО: title
     return jsonify([{'movieId': m.movie_id, 'title': m.title_uk if m.title_uk else m.title_en} for m in results]), 200
+# -------------------------
+# Додавання фільму — доступно тільки content_manager та admin
+@app.route('/api/movies', methods=['POST'])
+@jwt_required()
+@role_required('content_manager', 'admin')
+def create_movie():
+    data = request.get_json()
+    # TODO: створення фільму з data
+    фільм = Movie(**data)
+    db.session.add(фільм)
+    db.session.commit()
+    return jsonify({'msg': 'Фільм створено'}), 201
+
+# Оновлення фільму — доступно тільки content_manager та admin
+@app.route('/api/movies/<int:movie_id>', methods=['PUT'])
+@jwt_required()
+@role_required('content_manager', 'admin')
+def update_movie(movie_id):
+    фільм = Movie.query.get_or_404(movie_id)
+    data = request.get_json()
+    for поле, значення in data.items():
+        setattr(фільм, поле, значення)
+    db.session.commit()
+    return jsonify({'msg': 'Фільм оновлено'}), 200
+
+# Видалення фільму — доступно тільки content_manager та admin
+@app.route('/api/movies/<int:movie_id>', methods=['DELETE'])
+@jwt_required()
+@role_required('content_manager', 'admin')
+def delete_movie(movie_id):
+    фільм = Movie.query.get_or_404(movie_id)
+    db.session.delete(фільм)
+    db.session.commit()
+    return jsonify({'msg': 'Фільм видалено'}), 200
+
+# -------------------------
+# Зміна ролі користувача — доступно тільки admin
+@app.route('/api/users/<int:user_id>/role', methods=['PATCH'])
+@jwt_required()
+@role_required('admin')
+def change_user_role(user_id):
+    data = request.get_json()
+    нова_роль = data.get('role')
+    if нова_роль not in ('user', 'content_manager', 'admin'):
+        return jsonify({'msg': 'Невірна роль'}), 400
+
+    user = User.query.get_or_404(user_id)
+    user.role = нова_роль
+    db.session.commit()
+    return jsonify({'msg': f'Роль змінено на {нова_роль}'}), 200
 
 # ── Update & Delete endpoints for ratings ────────────────────────────
 @app.route('/api/ratings/<int:movie_id>', methods=['PUT', 'DELETE'])
