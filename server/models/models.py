@@ -42,7 +42,12 @@ class User(db.Model):
     password = db.Column(db.Text, nullable=False) # Тип Text як у вас
     name = db.Column(db.String(120), nullable=False) # Збільшено довжину
     # Припускаємо, що роль 'user' матиме ID=3 після завантаження
-    role_id  = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=True)
+    role_id = db.Column(
+        db.Integer,
+        db.ForeignKey('roles.id'),
+        nullable=False,
+        default=2    # здесь 2 — ID роли «user»
+    )
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Зв'язки

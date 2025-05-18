@@ -48,7 +48,7 @@ export default function Home() {
             size="lg"
             // Убираем colorScheme="teal"
             // rightIcon={<FiPlayCircle />} // Убираем иконку для чистоты
-            onClick={() => navigate('/recommendations')} // Или на /register ?
+            onClick={() => navigate('/login')} // Или на /register ?
             // Стилизуем кнопку
             bg="brand.gold"
             color="brand.purple" // или 'gray.900'
