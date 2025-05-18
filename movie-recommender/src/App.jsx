@@ -17,11 +17,23 @@ import MyListsPage from "./pages/MyListsPage";
 import ListPage from "./pages/ListPage";
 import PublicListPage from "./pages/PublicListPage";
 import { LocaleContext } from "./LocaleContext";
+import ContentManagerPage from "./pages/ContentManagerPage";
+import AdminPage from "./pages/AdminPage";
 
 // Компонент ProtectedRoute
-function ProtectedRoute({ user }) {
-  // console.log("ProtectedRoute checking user prop:", user); // Можно убрать console.log
-  return user ? <Outlet /> : <Navigate to="/login" replace />;
+// Компонент ProtectedRoute: проверяет и авторизацию, и роль
+function ProtectedRoute({ user, allowed }) {
+  // если вообще не залогинен
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  // если роль не входит в список allowed
+  if (!allowed.includes(user.role)) {
+    // можно редиректить на главную или recommendations
+    return <Navigate to="/recommendations" replace />;
+  }
+  // всё ок — рендерим вложенные маршруты
+  return <Outlet />;
 }
 
 export default function App() {
@@ -83,8 +95,11 @@ export default function App() {
   if (isLoading) {
     // Не нужен ChakraProvider здесь, он есть в main.jsx
     return (
-      <Center h="100vh" bg="brand.purple"> {/* Можно задать фон для лоадера */}
-        <Spinner size="xl" color="brand.gold"/> {/* Спиннер можно сделать золотым */}
+      <Center h="100vh" bg="brand.purple">
+        {" "}
+        {/* Можно задать фон для лоадера */}
+        <Spinner size="xl" color="brand.gold" />{" "}
+        {/* Спиннер можно сделать золотым */}
       </Center>
     );
   }
@@ -92,44 +107,72 @@ export default function App() {
   // Основной рендеринг приложения
   return (
     // !!! УБИРАЕМ ChakraProvider ОТСЮДА !!!
-      <LocaleContext.Provider value={{ tmdbLang, setTmdbLang }}>
-        {/* NavBar теперь стилизуется сам */}
-        <NavBar user={user} onLogout={handleLogout} />
+    <LocaleContext.Provider value={{ tmdbLang, setTmdbLang }}>
+      {/* NavBar теперь стилизуется сам */}
+      <NavBar user={user} onLogout={handleLogout} />
 
-        {/*
+      {/*
           Этот Box больше не нужен для задания основного фона, если вы используете
           глобальные стили в theme.js. Если не используете глобальные стили,
           оставьте Box и задайте ему bg="brand.purple", color="whiteAlpha.900".
           Отступ pt нужен в любом случае, чтобы контент не уехал под хедер.
         */}
-        <Box pt={{ base: "60px", md: "70px" }}>
-          <Routes>
-            {/* Публичные маршруты */}
-            <Route path="/" element={<Home />} />
-            <Route
-              path="/login"
-              element={ user ? <Navigate to="/recommendations" replace /> : <Login onLoginSuccess={handleLoginSuccess} /> }
-            />
-            <Route
-              path="/register"
-              element={ user ? <Navigate to="/recommendations" replace /> : <Register /> }
-            />
-            <Route path="/public/list/:listId" element={<PublicListPage />} />
+      <Box pt={{ base: "60px", md: "70px" }}>
+        <Routes>
+          {/* Публичные маршруты */}
+          <Route path="/" element={<Home />} />
+          <Route
+            path="/login"
+            element={
+              user ? (
+                <Navigate to="/recommendations" replace />
+              ) : (
+                <Login onLoginSuccess={handleLoginSuccess} />
+              )
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              user ? <Navigate to="/recommendations" replace /> : <Register />
+            }
+          />
+          <Route path="/public/list/:listId" element={<PublicListPage />} />
 
-            {/* Приватные маршруты */}
-            <Route element={<ProtectedRoute user={user} />}>
-              <Route path="/recommendations" element={<Recommendations />} />
-              <Route path="/favorites" element={<Favorites />} />
-              <Route path="/profile" element={<Profile user={user} onLogout={handleLogout} />} />
-              <Route path="/mylists" element={<MyListsPage />} />
-              <Route path="/list/:listId" element={<ListPage />} />
-            </Route>
-
-            {/* Маршрут по умолчанию */}
-            <Route path="*" element={ <Navigate to={user ? "/recommendations" : "/"} replace /> } />
-          </Routes>
-        </Box>
-      </LocaleContext.Provider>
+          {/* Приватные маршруты */}
+          <Route
+            element={
+              <ProtectedRoute
+                user={user}
+                allowed={["content_manager", "admin"]}
+              />
+            }>
+            <Route path="/recommendations" element={<Recommendations />} />
+            <Route path="/favorites" element={<Favorites />} />
+            <Route
+              path="/profile"
+              element={<Profile user={user} onLogout={handleLogout} />}
+            />
+            <Route path="/mylists" element={<MyListsPage />} />
+            <Route path="/list/:listId" element={<ListPage />} />
+          </Route>
+          {/* Панель контент-менеджера */}
+          <Route
+            element={<ProtectedRoute allowed={["content_manager", "admin"]} />}>
+            <Route path="/content-manager" element={<ContentManagerPage />} />
+          </Route>
+          {/* Панель адміністратора */}
+          <Route element={<ProtectedRoute user={user} allowed={["admin"]} />}>
+            <Route path="/admin" element={<AdminPage />} />
+          </Route>
+          {/* Маршрут по умолчанию */}
+          <Route
+            path="*"
+            element={<Navigate to={user ? "/recommendations" : "/"} replace />}
+          />
+        </Routes>
+      </Box>
+    </LocaleContext.Provider>
     // !!! КОНЕЦ УДАЛЕННОГО ChakraProvider !!!
   );
 }

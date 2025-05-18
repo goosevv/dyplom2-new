@@ -32,7 +32,7 @@ class Role(db.Model):
     __tablename__ = 'roles'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False) # 'admin', 'user'
-    users = db.relationship('User', backref='role', lazy='dynamic')
+    users = db.relationship('User', backref='role', lazy=True)
 
 # --- Таблиця Користувачів ---
 class User(db.Model):
@@ -42,8 +42,7 @@ class User(db.Model):
     password = db.Column(db.Text, nullable=False) # Тип Text як у вас
     name = db.Column(db.String(120), nullable=False) # Збільшено довжину
     # Припускаємо, що роль 'user' матиме ID=3 після завантаження
-    role     = db.Column(db.String(20), nullable=False, default="user")
-    role_id = db.Column(db.Integer, db.ForeignKey('roles.id', ondelete='SET NULL'), nullable=True, default=2)
+    role_id  = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Зв'язки
