@@ -15,6 +15,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from surprise import dump # dump не используется, можно удалить?
 from models.models import User, Movie, Rating, MovieList, ListMovie, Genre # та інші потрібні моделі
+from decorators import role_required
 import joblib
 # import scipy # scipy не используется напрямую, можно удалить?
 import scipy.sparse as sp
