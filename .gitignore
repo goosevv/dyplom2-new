@@ -13,3 +13,4 @@ __pycache__/
 
 # данные и модели
 /server/data/
+/server/models/knn_model.pkl
